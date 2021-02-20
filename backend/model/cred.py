@@ -1,7 +1,7 @@
 from extensions import db
 from model.elem_bounds import EMAIL_LEN, USERNAME_LEN, PASSWORD_HASH_LEN
 from sqlalchemy.orm import relationship
-from model.user import User 
+
 
 class Cred(db.Model):
     __tablename__ = 'cred'

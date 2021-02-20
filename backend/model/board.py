@@ -1,7 +1,7 @@
 from extensions import db
 from model.elem_bounds import CARDS_JSON_LEN, CURRENT_PLAYERS_JSON_LEN, CURRENT_HAND_PLAYERS_LEN
 from sqlalchemy.orm import relationship
-from model.user import User 
+
 
 class Board(db.Model):
     __tablename__ = 'board'

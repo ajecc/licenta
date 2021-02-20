@@ -10,7 +10,7 @@ def register():
     username = request.json.get('username')
     password = request.json.get('password')
     response = cred_controller.add(email, username, password)
-    if response.status != 200:
+    if response.status_code != 200:
         return response
     user_controller.create_new(cred_controller.get_by_username(username).id)
     return response
@@ -18,13 +18,13 @@ def register():
 
 @auth.route('/auth/login', methods=['POST'])
 def login():
-    if 'user_id' in session:
+    if session.get('user_id') == True:
         return Response(f'Logged in as {session["user_id"]}', status=200)
     email = request.json.get('email')
     username = request.json.get('username')
     password = request.json.get('password')
     response = cred_controller.check(email, username, password)
-    if response.status != 200:
+    if response.status_code != 200:
         return response
     user = cred_controller.get_by_username(username)
     if user is None:
