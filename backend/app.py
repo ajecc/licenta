@@ -5,6 +5,7 @@ from flask_session import Session
 
 # routes
 from routes.auth import auth
+from routes.empty import empty
 
 app = flask.Flask(__name__)
 
@@ -21,6 +22,7 @@ def register_extensions():
 
 def register_blueprints():
     app.register_blueprint(auth)
+    app.register_blueprint(empty)
 
 
 def db_create_all():

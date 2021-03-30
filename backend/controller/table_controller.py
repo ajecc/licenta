@@ -1,13 +1,15 @@
+from repo.table_repo import TableRepo
+
+
 class TableController:
     def __init__(self):
-        pass
+        self._repo = TableRepo()
 
-    def add(self, table):
-        pass
+    def create_new(self):
+        return self._repo.create_new()
 
-    def update(self, table):
-        pass
+    def get_by_uniq_code(self, uniq_code):
+        return self._repo.get_by_uniq_code(uniq_code)
 
-    def remove(self, table):
-        pass
+
 

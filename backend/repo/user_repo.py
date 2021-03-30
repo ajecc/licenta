@@ -9,3 +9,6 @@ class UserRepo:
         db.session.add(User(cred_id))
         db.session.commit()
 
+    def get_by_id(self, id):
+        return User.query.filter_by(id=id).first()
+

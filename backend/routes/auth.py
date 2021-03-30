@@ -3,7 +3,6 @@ from controller.controllers import cred_controller, user_controller
 
 auth = Blueprint('auth', __name__)
 
-
 @auth.route('/auth/register', methods=['POST'])
 def register():
     email = request.json.get('email')
@@ -18,7 +17,7 @@ def register():
 
 @auth.route('/auth/login', methods=['POST'])
 def login():
-    if session.get('user_id') == True:
+    if session.get('user_id'):
         return Response(f'Logged in as {session["user_id"]}', status=200)
     email = request.json.get('email')
     username = request.json.get('username')

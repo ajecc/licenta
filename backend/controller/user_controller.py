@@ -3,7 +3,10 @@ from model.user import User
 
 class UserController:
     def __init__(self):
-        self.repo = UserRepo()
+        self._repo = UserRepo()
 
     def create_new(self, cred_id):
-        self.repo.create_new(cred_id)
+        self._repo.create_new(cred_id)
+
+    def get_by_id(self, id):
+        return self._repo.get_by_id(id)
