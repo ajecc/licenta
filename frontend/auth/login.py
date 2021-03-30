@@ -1,5 +1,5 @@
-from form import Form
-from request import g_request
+from common.form import Form
+from common.request import g_request
 from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QVBoxLayout, QHBoxLayout,\
         QMessageBox, QPushButton, QListWidget, QFrame, QSplitter, QLabel, QTableWidget,\
         QTableWidgetItem, QHeaderView, QFileDialog, QErrorMessage
@@ -8,54 +8,71 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QVBoxLayout, QHBox
 class LoginWindow(QWidget):
     def __init__(self):
         super().__init__()
-        self.register_window = None
-        self.init_window()
-        self.init_layouts()
-        self.add_forms()
-        self.add_buttons()
+        self._register_window = None
+        self._settings_window = None
+        self._init_window()
+        self._init_layouts()
+        self._add_forms()
+        self._add_buttons()
 
-    def init_window(self):
-        self.register_window = None
+    def _init_window(self):
         self.setWindowTitle('Login')
     
-    def init_layouts(self):
-        self.main_layout = QVBoxLayout(self)
-        self.forms_layout = QVBoxLayout(self)
-        self.buttons_layout = QHBoxLayout(self)
+    def _init_layouts(self):
+        self._main_layout = QVBoxLayout(self)
+        self._forms_layout = QVBoxLayout(self)
+        self._buttons_layout = QHBoxLayout(self)
         # Adding to the main_layout
-        self.main_layout.addLayout(self.forms_layout)
-        self.main_layout.addLayout(self.buttons_layout)
+        self._main_layout.addLayout(self._forms_layout)
+        self._main_layout.addLayout(self._buttons_layout)
 
-    def add_forms(self):
+    def _add_forms(self):
         # Username
-        self.username_form = Form('Username')
-        self.username_form.add_to_layout(self.forms_layout)
+        self._username_form = Form('Username')
+        self._username_form.add_to_layout(self._forms_layout)
         # Password
-        self.password_form = Form('Password', is_password=True)
-        self.password_form.add_to_layout(self.forms_layout)
+        self._password_form = Form('Password', is_password=True)
+        self._password_form.add_to_layout(self._forms_layout)
 
-    def add_buttons(self):
+    def _add_buttons(self):
         # Login
-        self.login_button = QPushButton('Login')
-        self.login_button.clicked.connect(self.login_button_action)
-        self.buttons_layout.addWidget(self.login_button)
+        self._login_button = QPushButton('Login')
+        self._login_button.clicked.connect(self._login_button_action)
+        self._buttons_layout.addWidget(self._login_button)
         # Register
-        self.register_button = QPushButton('Register')
-        self.register_button.clicked.connect(self.register_button_action)
-        self.buttons_layout.addWidget(self.register_button)
+        self._register_button = QPushButton('Register')
+        self._register_button.clicked.connect(self._register_button_action)
+        self._buttons_layout.addWidget(self._register_button)
 
-    def login_button_action(self):
-        self.username_form.set_error_text('')
-        self.password_form.set_error_text('')
-        username = self.username_form.get_text()
-        password = self.password_form.get_text()
+    def _login_button_action(self):
+        self._username_form.set_error_text('')
+        self._password_form.set_error_text('')
+        username = self._username_form.get_text()
+        password = self._password_form.get_text()
         status, data = g_request.login(username, password)
         if status != 200:
-            self.username_form.set_error_text(data)
+            self._username_form.set_error_text(data)
+        else:
+            self._settings_window.show()
+            self.hide()
         print(status, data)
         
-    def register_button_action(self):
-        self.register_window.show()
+    def _register_button_action(self):
+        self._register_window.show()
         self.hide()
 
+    @property
+    def register_window(self):
+        return self._register_window
+    
+    @register_window.setter
+    def register_window(self, value):
+        self._register_window = value
 
+    @property
+    def settings_window(self):
+        return self._settings_window
+    
+    @settings_window.setter
+    def settings_window(self, value):
+        self._settings_window = value

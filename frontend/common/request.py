@@ -14,5 +14,13 @@ class Request:
         request = self.session.post(f'{self.MAIN_URL}/auth/register', json={'email': email, 'username': username, 'password': password})
         return request.status_code, request.text
 
+    def create_table(self, bots_cnt):
+        request = self.session.post(f'{self.MAIN_URL}/create_table', json={'bots_cnt': bots_cnt})
+        return request.status_code, request.text
+
+    def join_table(self, table_code):
+        request = self.session.post(f'{self.MAIN_URL}/join_table', json={'table_code': table_code})
+        return request.status_code, request.text
+
 
 g_request = Request()
