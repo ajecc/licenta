@@ -1,20 +1,21 @@
-from extensions import db
 from model.cred import Cred
 from passlib.hash import pbkdf2_sha256
+from extensions import g_redis
+from controller.controllers import user_controller
 
 class CredRepo:
     def __init__(self):
         pass
 
     def add(self, cred):
-        db.session.add(cred)
-        db.session.commit()
+        cred.update_to_redis()
+        user_controller.create_new(cred.id) 
 
     def contains_username(self, username):
-        return Cred.query.filter_by(username=username).first() is not None
+        return g_redis.exists_key(f'cred:{username}') 
 
     def contains_email(self, email):
-        return Cred.query.filter_by(email=email).first() is not None
+        return g_redis.exists_key(f'cred:{email}') 
 
     def check(self, email, username, password):
         if email is not None:
@@ -24,17 +25,19 @@ class CredRepo:
         return False
 
     def get_by_id(self, id):
-        return Cred.query.filter_by(id=id).first()
+        return Cred.from_redis(id)
 
     def get_by_username(self, username):
-        return Cred.query.filter_by(username=username).first()
+        return self.get_by_id(g_redis.get_raw(f'cred:{username}'))
 
     def get_by_email(self, email):
-        return Cred.query.filter_by(email=email).first()
+        return self.get_by_id(g_redis.get_raw(f'cred:{email}'))
 
     def _check_email_password(self, email, password):
         try:
-            real_cred = Cred.query.filter_by(email=email).first()
+            real_cred = self.get_by_email(email)
+            if real_cred is None:
+                return False
             return pbkdf2_sha256.verify(password, real_cred.password_hash) 
         except Exception as e:
             print(e)
@@ -42,7 +45,9 @@ class CredRepo:
 
     def _check_username_password(self, username, password):
         try:
-            real_cred = Cred.query.filter_by(username=username).first()
+            real_cred = self.get_by_username(username)
+            if real_cred is None:
+                return False
             return pbkdf2_sha256.verify(password, real_cred.password_hash) 
         except Exception as e:
             print(e)

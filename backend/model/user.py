@@ -1,25 +1,35 @@
-from extensions import db
-from model.elem_bounds import HAND_LEN
-from model.board import Board
-from model.cred import Cred
+from model.card import Card
+from extensions import g_redis
 
 
-class User(db.Model):
-    __tablename__ = 'user'
-    id = db.Column(db.Integer, primary_key=True) 
-    table_id = db.Column(db.Integer, db.ForeignKey('table.id'), nullable=True)
-    cred_id = db.Column(db.Integer, db.ForeignKey('cred.id'), nullable=False)
-    hand_json = db.Column(db.String(HAND_LEN)) 
-    currrent_bet = db.Column(db.Integer) 
-    balance = db.Column(db.Integer) 
-
+class User:
+    @classmethod
+    def from_redis(cls, id):
+        user = cls(id)
+        user._table_id = g_redis.get(id, 'user:table_id')
+        user._hand = [Card(g_redis.get(id, 'user:hand_0')), Card(g_redis.get(id, 'user:hand_1'))]
+        user._currrent_bet = g_redis.get(id, 'user:current_bet')
+        user._balance = g_redis.get(id, 'user:balance')
+        return user
+        
     def __init__(self, cred_id):
-        self.cred_id = cred_id
-        self.board_id = None
-        self.hand_json = None
-        self.currrent_bet = 0
-        self.balance = 0
+        self._id = cred_id
+        self._table_id = None
+        self._hand = None
+        self._currrent_bet = 0
+        self._balance = 0
 
     def join_table(self, table):
-        self.table_id = table.id
-        User.query.filter_by(id=self.id).update({'table_id': self.table_id})
+        self._table_id = table.id
+        self.update_to_redis()
+
+    def leave_table(self):
+        self._table_id = None
+        self.update_to_redis()
+
+    def update_to_redis(self):
+        g_redis.set(self._id, 'user:table_id', self._table_id)
+        g_redis.set(self._id, 'user:hand_0', str(self._hand[0]))
+        g_redis.set(self._id, 'user:hand_1', str(self._hand[1]))
+        g_redis.set(self._id, 'user:current_bet', self._currrent_bet)
+        g_redis.set(self._id, 'user:balance', self._balance)

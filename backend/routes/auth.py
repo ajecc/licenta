@@ -25,8 +25,8 @@ def login():
     response = cred_controller.check(email, username, password)
     if response.status_code != 200:
         return response
-    user = cred_controller.get_by_username(username)
-    if user is None:
-        user = cred_controller.get_by_email(email)
-    session['user_id'] = user.id
+    cred = cred_controller.get_by_username(username)
+    if cred is None:
+        cred = cred_controller.get_by_email(email)
+    session['user_id'] = cred.id
     return response

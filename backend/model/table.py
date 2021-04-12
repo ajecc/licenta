@@ -1,50 +1,33 @@
-from extensions import db
 import random
 import string
-from model.elem_bounds import CARDS_JSON_LEN, CURRENT_PLAYERS_JSON_LEN, CURRENT_HAND_PLAYERS_LEN, UNIQ_CODE_LEN
-from sqlalchemy.orm import relationship
-from munch import Munch
-import json
+from model.elem_bounds import ID_LEN 
+from extensions import g_redis
 
 
-class Table(db.Model):
-    __tablename__ = 'table'
-    id = db.Column(db.Integer, primary_key=True)
-    uniq_code = db.Column(db.String(UNIQ_CODE_LEN))
-    pot = db.Column(db.Integer)
-    cards_json = db.Column(db.String(CARDS_JSON_LEN))
-    current_player = db.Column(db.Integer)
-    current_players = db.Column(db.String(CURRENT_PLAYERS_JSON_LEN))
-    current_hand_players = db.Column(db.String(CURRENT_HAND_PLAYERS_LEN))
-    bots_cnt = db.Column(db.Integer)
-    users = relationship('User')
-
+class Table:
     def __init__(self, bots_cnt):
-        self.uniq_code = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(UNIQ_CODE_LEN))
-        self.bots_cnt = bots_cnt
-        self.pot = 0 
-        self.cards = ''
-        self.current_player = 0
-        self.current_players = '[]'
-        self.current_hand_players = '[]'
+        self._id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(ID_LEN))
+        self._bots_cnt = bots_cnt
+        self._pot = 0 
+        self._cards = []
+        self._current_player_id = 0
+        self._current_players = []
+        self._current_hand_players = []
 
     def add_user(self, user):
         user.join_table(self)
-        current_players_ = self._get_current_players_from_db()
-        current_players_.append(user)
-        new_current_players = '['
-        for current_player, i in enumerate(current_players_):
-            new_current_players += json.dumps(current_player)
-            if i != len(current_players_) - 1:
-                new_current_players += ', '
-        new_current_players += ']'
-        self.current_players = new_current_players
-        Table.query.first(id=self.id).update({'current_players': new_current_players})
-        
-    def _get_current_players_from_db(self):
-        temp = json.loads(self.current_players) 
-        current_players_ = []
-        for json_ in temp:
-            current_players_.append(Munch(json_))
-        return current_players_
+        self._current_players.append(user.id)
+        self.update_to_redis()
 
+    def remove_user(self, user):
+        user.leave_table()
+        self._current_players = list(filter(lambda id: id != user.id, self._current_players))
+        self.update_to_redis()
+
+    def update_to_redis(self):
+        g_redis.set(self._id, 'table:bots_cnt', self._bots_cnt)
+        g_redis.set(self._id, 'table:pot', self._pot)
+        g_redis.update_list(self._id, 'table:cards', [str(card) for card in self._cards])
+        g_redis.set(self._id, 'table:current_player_id', self._current_player_id)
+        g_redis.update_list(self._id, 'table:current_players', self._current_players)
+        g_redis.update_list(self._id, 'table:current_hand_players', self._current_hand_players)
