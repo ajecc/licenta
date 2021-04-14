@@ -1,5 +1,7 @@
 from model.card import Card
 from extensions import g_redis
+import requests
+import time
 
 
 class User:
@@ -18,6 +20,10 @@ class User:
         self._hand = None
         self._currrent_bet = 0
         self._balance = 0
+        self._is_bot = False
+        self._position = None
+        self._decision = None
+        self._consecutive_decision_retrieval_failures = 0
 
     def join_table(self, table):
         self._table_id = table.id
@@ -33,3 +39,7 @@ class User:
         g_redis.set(self._id, 'user:hand_1', str(self._hand[1]))
         g_redis.set(self._id, 'user:current_bet', self._currrent_bet)
         g_redis.set(self._id, 'user:balance', self._balance)
+    
+    def signal_processed_decision(self):
+        self._decision = None
+        g_redis.set(self._id, 'user:decision', None)

@@ -7,9 +7,18 @@ class Decision:
     CALL = 'CALL'
     BET = 'BET'
 
+    DECISION_TIME = 20  # seconds
+
     def __init__(self, decision, bet_ammount=None):
         self._decision = decision
         self._bet_ammount = bet_ammount
+
+    def __eq__(self, other):
+        return self._decision == other.decision
+
+    @property
+    def decision(self):
+        return self._decision
 
     @classmethod
     def from_json(cls, decision_json):
