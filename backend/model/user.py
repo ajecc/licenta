@@ -23,7 +23,7 @@ class User:
         self._is_bot = False
         self._position = None
         self._decision = None
-        self._consecutive_decision_retrieval_failures = 0
+        self._is_active = True
 
     def join_table(self, table):
         self._table_id = table.id
@@ -43,3 +43,51 @@ class User:
     def signal_processed_decision(self):
         self._decision = None
         g_redis.set(self._id, 'user:decision', None)
+
+    @property
+    def hand(self):
+        return self._hand
+
+    @hand.setter
+    def hand(self, value):
+        self._hand = value
+
+    @property
+    def current_bet(self):
+        return self._current_bet
+
+    @current_bet.setter
+    def current_bet(self, value):
+        self._current_bet = value
+
+    @property
+    def balance(self):
+        return self._balance
+
+    @balance.setter
+    def balance(self, value):
+        self._balance = value
+
+    @property
+    def is_bot(self):
+        return self._is_bot
+    
+    @property
+    def position(self):
+        return self._position
+
+    @position.setter
+    def position(self, value):
+        self._position = value
+
+    @property
+    def decision(self):
+        return self._decision
+
+    @property
+    def is_active(self):
+        return self._is_active
+
+    @is_active.setter
+    def is_active(self, value):
+        self._is_active = value

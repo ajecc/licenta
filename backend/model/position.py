@@ -27,6 +27,10 @@ class Position:
     @property
     def position(self):
         return self._position
+
+    @property
+    def index(self):
+        return self._index
          
 
 __POSITIONS_CACHE = [Position(*Position.D), Position(*Position.SB), Position(*Position.BB),
