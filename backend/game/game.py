@@ -2,16 +2,19 @@ from model.position import Position
 from model.decision import Decision
 from model.user import User
 from model.card import Card
+from model.table import Table
 from controller.controllers import user_controller, table_controller
 from pokereval.hand_evaluator import HandEvaluator
+from game.ai_bridge import AiBridge
 import time
 
 
-class GameController:
-    def __init__(self, table):
-        self._table = table
+class GameHandler:
+    def __init__(self, table_id):
+        self._table = Table.from_redis(table_id)
         self._current_hand_users = []
         self._current_users = []
+        self._ai_bridge = AiBridge()
 
     def start_game(self):
         while True:
@@ -24,7 +27,7 @@ class GameController:
             self._update_current_users()
             self._shift_users_position()
             self._clear()
-            self._table.update_to_redis()
+            self._update_to_redis
             # TODO: update the users as well
         table_controller.remove_table(self._table.id)
 
@@ -89,9 +92,7 @@ class GameController:
         # TODO: repeat this
         for user in self._current_hand_users:
             if user.is_bot:
-                # TODO: get decision through DLL call
-                decision = Decision.from_json(decision_json)
-                pass
+                decision = self._ai_bridge.get_decision(self.to_json_for_user(user.id))
             else:
                 decision = self.wait_for_decision(user)
                 user.signal_processed_decision()
@@ -102,6 +103,7 @@ class GameController:
                 if not self._check_bet_ammount(decision.bet_ammount, user):
                     decision = Decision(Decision.CHECK)
             self._alter_on_decision(user, decision)
+        self._update_to_redis()
 
     def _check_bet_ammount(self, bet_ammount, user):
         if bet_ammount == user.balance:
@@ -140,10 +142,17 @@ class GameController:
     def _sort_current_hand_users_by_pos(self, start_pos):
         self._current_hand_users = sorted(self._current_hand_users,
                 lambda u: u.position.index if u.position.index >= start_pos.index else Position(*Position.UTG_2).index + 1 + u.position.index) 
-    
-    def _clear(self):
-        pass
 
+    def _clear(self):
+        for user in self._current_users:
+            user.clear()
+        self._table.clear()
+
+    def _update_to_redis(self):
+        for user in self._current_users:
+            user.update_to_redis()
+        self._table.update_to_redis()
+    
     def _alter_on_decision(self, user, decision):
         if decision == Decision.FOLD or (decision == Decision.CHECK and self._table.current_bet > user.current_bet and user.current_bet != user.balance):
             self._table.remove_current_hand_user(user.id)
@@ -167,10 +176,6 @@ class GameController:
             time.sleep(interval)
         return None
 
-    @staticmethod
-    def get_state_json(table_id):
-        pass
-
-    @staticmethod
-    def get_state_json_for_user(user_id):
+    def to_json_for_user(self, user_id):
+        # TODO: this
         pass

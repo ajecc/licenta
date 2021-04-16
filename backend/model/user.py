@@ -9,7 +9,8 @@ class User:
     def from_redis(cls, id):
         user = cls(id)
         user._table_id = g_redis.get(id, 'user:table_id')
-        user._hand = [Card(g_redis.get(id, 'user:hand_0')), Card(g_redis.get(id, 'user:hand_1'))]
+        if g_redis.get(id, 'user:hand_0') is not None:
+            user._hand = [Card(g_redis.get(id, 'user:hand_0')), Card(g_redis.get(id, 'user:hand_1'))]
         user._currrent_bet = g_redis.get(id, 'user:current_bet')
         user._balance = g_redis.get(id, 'user:balance')
         return user
@@ -35,14 +36,22 @@ class User:
 
     def update_to_redis(self):
         g_redis.set(self._id, 'user:table_id', self._table_id)
-        g_redis.set(self._id, 'user:hand_0', str(self._hand[0]))
-        g_redis.set(self._id, 'user:hand_1', str(self._hand[1]))
+        if len(self._hand) != 0:
+            g_redis.set(self._id, 'user:hand_0', str(self._hand[0]))
+            g_redis.set(self._id, 'user:hand_1', str(self._hand[1]))
+        else:
+            g_redis.set(self._id, 'user:hand_0', None)
+            g_redis.set(self._id, 'user:hand_1', None)
         g_redis.set(self._id, 'user:current_bet', self._currrent_bet)
         g_redis.set(self._id, 'user:balance', self._balance)
     
     def signal_processed_decision(self):
         self._decision = None
         g_redis.set(self._id, 'user:decision', None)
+
+    def clear(self):
+        self._hand = []
+        self._current_bet = 0
 
     @property
     def hand(self):

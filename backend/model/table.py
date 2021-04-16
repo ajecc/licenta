@@ -6,8 +6,23 @@ from extensions import g_redis
 
 
 class Table:
-    def __init__(self, bots_cnt):
-        self._id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(ID_LEN))
+    @classmethod
+    def from_redis(cls, id):
+        table = cls(id=id)
+        table._bots_cnt = g_redis.get(id, 'table:bots_cnt')
+        table._current_bet = g_redis.get(id, 'table:current_bet')
+        table._pot = g_redis.get(id, 'table:pot')
+        table._cards = g_redis.get_list(id, 'table:cards')
+        table._current_users_ids = g_redis.get_list(id, 'table:current_users_ids')
+        table._current_hand_users_ids = g_redis.get_list(id, 'table:current_hand_users_ids')
+        table._used_cards = g_redis.get_list(id, 'table:used_cards')
+        return table
+
+    def __init__(self, bots_cnt=None, id=None):
+        if id is None:
+            self._id = ''.join(random.SystemRandom().choice(string.ascii_uppercase + string.digits) for _ in range(ID_LEN))
+        else:
+            self._id = id
         self._bots_cnt = bots_cnt
         self._pot = 0 
         self._current_bet = 0
@@ -28,13 +43,13 @@ class Table:
         self.update_to_redis()
 
     def update_to_redis(self):
-        # TODO: update this
         g_redis.set(self._id, 'table:bots_cnt', self._bots_cnt)
         g_redis.set(self._id, 'table:pot', self._pot)
+        g_redis.set(self._id, 'table:current_bet', self._current_bet)
         g_redis.update_list(self._id, 'table:cards', [str(card) for card in self._cards])
-        g_redis.set(self._id, 'table:current_user_id', self._current_user_id)
         g_redis.update_list(self._id, 'table:current_users_ids', self._current_users_ids)
         g_redis.update_list(self._id, 'table:current_hand_users_ids', self._current_hand_users_ids)
+        g_redis.update_list(self._id, 'table:used_cards', self._used_cards)
 
     def bet(self, bet):
         self.pot += bet
@@ -45,6 +60,13 @@ class Table:
 
     def append_used_card(self, card):
         self._used_cards.append(card)
+
+    def clear(self):
+        self._pot = 0
+        self._current_bet = 0
+        self._cards = []
+        self._current_hand_users_ids = []
+        self._used_cards = []
 
     @property
     def pot(self):
