@@ -1,4 +1,6 @@
 from model.card import Card
+from model.position import Position
+from model.decision import Decision
 from extensions import g_redis
 import requests
 import time
@@ -13,6 +15,10 @@ class User:
             user._hand = [Card(g_redis.get(id, 'user:hand_0')), Card(g_redis.get(id, 'user:hand_1'))]
         user._currrent_bet = g_redis.get(id, 'user:current_bet')
         user._balance = g_redis.get(id, 'user:balance')
+        user._is_bot = g_redis.get(id, 'user:is_bot')
+        user._position = Position(g_redis.get(id, 'position'))
+        user._decision = Decision.from_json(g_redis.get(id, 'decision'))
+        user._is_active = g_redis.get(id, 'user:is_active')
         return user
         
     def __init__(self, cred_id):
@@ -44,10 +50,17 @@ class User:
             g_redis.set(self._id, 'user:hand_1', None)
         g_redis.set(self._id, 'user:current_bet', self._currrent_bet)
         g_redis.set(self._id, 'user:balance', self._balance)
+        g_redis.set(self._id, 'user:is_bot', self._is_bot)
+        g_redis.set(self._id, 'user:position', str(self._position))
+        g_redis.set(self._id, 'user:is_active', self._is_active)
     
     def signal_processed_decision(self):
         self._decision = None
         g_redis.set(self._id, 'user:decision', None)
+
+    def take_decision(self, decision):
+        self._decision = decision
+        g_redis.set(self._id, 'user:decision', decision.to_json())
 
     def clear(self):
         self._hand = []

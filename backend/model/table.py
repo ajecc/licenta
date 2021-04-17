@@ -37,6 +37,12 @@ class Table:
         self._current_users_ids.append(user.id)
         self.update_to_redis()
 
+    def remove_user(self, user):
+        user.leave_table()
+        self._current_users_ids = list(filter(lambda id: id != user.id, self._current_users_ids))
+        self._current_hand_users_ids = list(filter(lambda id: id != user.id, self._current_hand_users_ids))
+        self.update_to_redis()
+
     def remove_current_hand_user(self, user):
         user.leave_table()
         self._current_hand_users_ids = list(filter(lambda id: id != user.id, self._current_hand_users_ids))

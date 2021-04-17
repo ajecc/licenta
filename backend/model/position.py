@@ -6,9 +6,15 @@ class Position:
     UTG_1 = ['UTG+1', 4]
     UTG_2 = ['UTG+2', 5]
 
-    def __init__(self, position, index):
+    def __init__(self, position, index=None):
         self._position = position
-        self._index = index
+        if index is not None:
+            self._index = index
+        else:
+            for i, pos in enumerate(__POSITIONS_CACHE):
+                if pos == position:
+                    self._index = i
+                    break
 
     def get_next(self):
         if self._index == len(__POSITIONS_CACHE) - 1:
@@ -23,6 +29,9 @@ class Position:
         if type(other) is str:
             return self._position == other
         return self._position == other.position
+    
+    def __str__(self):
+        return self._position
 
     @property
     def position(self):

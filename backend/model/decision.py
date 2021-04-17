@@ -16,12 +16,20 @@ class Decision:
     def __eq__(self, other):
         return self._decision == other.decision
 
+    def to_json(self):
+        json_ = {}
+        json_['decision'] = self._decision
+        json_['bet_ammount'] = self._bet_ammount
+        return json.dumps(json_)
+
     @property
     def decision(self):
         return self._decision
 
     @classmethod
     def from_json(cls, decision_json):
+        if decision_json is None:
+            return None
         loaded = json.loads('decision_json')
         if 'decision' not in loaded.keys():
             raise ValueError('Decision json has to contain "decision"')

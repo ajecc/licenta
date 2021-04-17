@@ -3,10 +3,15 @@ from model.decision import Decision
 from model.user import User
 from model.card import Card
 from model.table import Table
+from model.cred import Cred
 from controller.controllers import user_controller, table_controller
 from pokereval.hand_evaluator import HandEvaluator
 from game.ai_bridge import AiBridge
+from extensions import g_redis
 import time
+import copy
+import asyncio
+import json
 
 
 class GameHandler:
@@ -15,8 +20,9 @@ class GameHandler:
         self._current_hand_users = []
         self._current_users = []
         self._ai_bridge = AiBridge()
+        self._cards_visible = False
 
-    def start_game(self):
+    async def start_game(self):
         while True:
             self._update_current_users()
             if not self._have_human_users():
@@ -24,11 +30,13 @@ class GameHandler:
             self._process_preflop()
             self._process_non_preflop()
             self._decide_winner()
+            self._cards_visible = True
+            await asyncio.sleep(5)
+            self._cards_visible = False
             self._update_current_users()
             self._shift_users_position()
             self._clear()
-            self._update_to_redis
-            # TODO: update the users as well
+            self._update_to_redis()
         table_controller.remove_table(self._table.id)
 
     def _have_human_users(self):
@@ -82,6 +90,11 @@ class GameHandler:
                 break
 
     def _shift_users_position(self):
+        # TODO: correct this. It is wrong. Find the dealer. 
+        # If there is no dealer assign it to the SB and so on 
+        # Shift the dealer
+        # Then set all positions according to that 
+        # TODO: handle heads-up
         new_current_users = []
         for user in self._current_users:
             user.position = user.position.get_next()
@@ -172,10 +185,62 @@ class GameHandler:
         for _ in range(poll_tries):
             user = User.from_redis(user.id)
             if user.decision is not None:
-                return user.decision
+                decision = user.decision
+                user.decision = None
+                return decision
             time.sleep(interval)
         return None
 
     def to_json_for_user(self, user_id):
-        # TODO: this
-        pass
+        json_ = {}
+        json_['board'] = {}
+        json_['board']['cards'] = [str(card) for card in self._table.cards]
+        json_['board']['pot'] = self._table.pot
+        json_['board']['bb'] = self._table.bb
+        json_['users'] = []
+
+        def add_user(user):
+            cards = []
+            if self._cards_visible or user.id == user_id:
+                cards = user.cards 
+            json_['users'].append({'active': user.is_active,
+                'seated': True,
+                'balance': user.balance,
+                'dealer': True if user.position == 'D' else False,
+                'name': Cred.from_redis(user.id).username,
+                'bet': user.current_bet,
+                'cards': cards})
+
+        def add_blank_user():
+            json_['users'].append({'active': False,
+                'seated': False,
+                'balance': 0,
+                'dealer': False,
+                'name': '',
+                'bet': 0,
+                'cards': []})
+
+        index = None
+        for i, user in enumerate(self._current_users):
+            if user.id == user_id:
+                index = i
+                break
+        # TODO: handle heads up case
+        if len(self._current_users) <= 2:
+            pass
+        else:
+            add_user(self._current_users[index - 2])
+            add_user(self._current_users[index - 1])
+            for user in self._current_users[index:]:
+                if user.id == self._current_users[index - 2].id:
+                    break
+                add_user(user)
+        while len(json_['users'] < 6):
+            add_blank_user()
+        return json.dumps(json_)
+
+    async def update_to_redis_periodically(self):
+        while True:
+            for user in self._current_users:
+                g_redis.set_raw(f'game#{self._table.id}#{user.id}', self.to_json_for_user(user.id))
+            await asyncio.sleep(0.1)

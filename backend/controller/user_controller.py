@@ -10,3 +10,6 @@ class UserController:
 
     def get_by_id(self, id):
         return self._repo.get_by_id(id)
+
+    def remove(self, id):
+        self._repo.remove(id)
