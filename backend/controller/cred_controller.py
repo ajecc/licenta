@@ -7,8 +7,9 @@ from model.elem_bounds import EMAIL_LEN, USERNAME_LEN, PASSWORD_MIN_LEN, PASSWOR
 
 
 class CredController:
-    def __init__(self):
+    def __init__(self, user_controller):
         self.repo = CredRepo() 
+        self._user_controller = user_controller
 
     def add(self, email, username, password):
         status, reason = self._validate_email(email)
@@ -21,7 +22,9 @@ class CredController:
         if not status:
             return Response(reason, status=400)
         password_hash = pbkdf2_sha256.hash(password)
-        self.repo.add(Cred(email, username, password_hash))
+        cred = Cred(email, username, password_hash)
+        self.repo.add(cred)
+        self._user_controller.create_new(cred.id) 
         return Response('OK', status=200)
 
     def check(self, email, username, password):

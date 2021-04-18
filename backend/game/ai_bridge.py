@@ -1,6 +1,6 @@
 import ctypes
 import os
-from model.Decision import Decision
+from model.decision import Decision
 
 class AiBridge:
     DLL_PATH = '.dll'

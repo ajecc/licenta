@@ -1,0 +1,99 @@
+from common.form import Form
+from common.request import g_request
+from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QVBoxLayout, QHBoxLayout,\
+        QMessageBox, QPushButton, QListWidget, QFrame, QSplitter, QLabel, QTableWidget,\
+        QTableWidgetItem, QHeaderView, QFileDialog, QErrorMessage, QGridLayout, QMainWindow
+from PyQt5 import QtGui, QtCore
+import json
+import ast
+from game.user import UserWidget
+from game.image import ImageWidget
+
+
+class GameLayout(QVBoxLayout):
+    def __init__(self, game_state_json, window_size):
+        super().__init__()
+        self._game_state = json.loads(game_state_json)
+        self._init_layouts()
+        self._add_cards_to_board(ast.literal_eval(self._game_state['board']['cards']))
+        for user in self._game_state['users']:
+            self._add_user(user)
+        self._add_buttons()
+
+    def _init_layouts(self):
+        self._board_layout = QHBoxLayout()
+        self._board_layout.setAlignment(QtCore.Qt.AlignCenter)
+        self._users_layout = QHBoxLayout()
+        self._users_layout.setAlignment(QtCore.Qt.AlignCenter)
+        self._buttons_layout = QHBoxLayout()
+        self._buttons_layout.setAlignment(QtCore.Qt.AlignCenter)
+        self._buttons_layout.setContentsMargins(420, 30, 420, 100)
+        self.addLayout(self._board_layout)
+        self.addLayout(self._users_layout)
+        self.addLayout(self._buttons_layout)
+
+    def _add_user(self, user_json):
+        self._users_layout.addWidget(UserWidget(user_json))
+
+    def _add_cards_to_board(self, cards):
+        for card in cards:
+            card = ImageWidget(card)
+            self._board_layout.addWidget(card)
+
+    def _add_buttons(self):
+        self._bet_line_edit = QLineEdit()
+        self._bet_line_edit.setAlignment(QtCore.Qt.AlignRight)
+        self._bet_button = QPushButton('Bet')
+        self._bet_button.clicked.connect(self._send_bet_decision)
+        self._call_button = QPushButton('Call')
+        self._call_button.clicked.connect(self._send_call_decision)
+        self._check_button = QPushButton('Check')
+        self._check_button.clicked.connect(self._send_check_decision)
+        self._fold_button = QPushButton('Fold')
+        self._fold_button.clicked.connect(self._send_check_decision)
+        user = self._game_state['users'][self._game_state['your_index']]
+        if not user['active']:
+            return
+        self._buttons_layout.addWidget(self._bet_line_edit)
+        self._buttons_layout.addWidget(self._bet_button)
+        if user['bet'] >= max([user['bet'] for user in self._game_state['users']]):
+            self._buttons_layout.addWidget(self._check_button)
+        else:
+            self._buttons_layout.addWidget(self._call_button)
+            self._buttons_layout.addWidget(self._fold_button)
+
+    def _send_check_decision(self):
+        pass
+
+    def _send_call_decision(self):
+        pass
+
+    def _send_bet_decision(self):
+        pass
+    
+    def _validate_bet_ammount(self, bet_ammount):
+        return True
+
+
+class GameWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self._init_window()
+        self._main_layout = QVBoxLayout(self) 
+        self._game_layout = None
+
+    def _init_window(self):
+        self.setWindowTitle('Game')
+        self.setFixedHeight(600)
+        self.setFixedWidth(1200)
+
+    def set_layout(self, layout):
+        if self._game_layout is not None:
+            self._game_layout.setParent(None)
+            del self._game_layout
+        self._game_layout = layout
+        #self._game_layout.setParent(self)
+        self._main_layout.addLayout(self._game_layout)
+        self.widget = QWidget()
+        self.widget.setLayout(self._main_layout)
+        self.setCentralWidget(self.widget)

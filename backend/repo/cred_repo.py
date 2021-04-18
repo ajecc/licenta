@@ -1,7 +1,6 @@
 from model.cred import Cred
 from passlib.hash import pbkdf2_sha256
 from extensions import g_redis
-from controller.controllers import user_controller
 
 class CredRepo:
     def __init__(self):
@@ -9,7 +8,6 @@ class CredRepo:
 
     def add(self, cred):
         cred.update_to_redis()
-        user_controller.create_new(cred.id) 
 
     def contains_username(self, username):
         return g_redis.exists_key(f'cred:{username}') 

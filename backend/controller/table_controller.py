@@ -1,10 +1,10 @@
 from repo.table_repo import TableRepo
-from controller.controllers import user_controller
 
 
 class TableController:
-    def __init__(self):
+    def __init__(self, user_controller):
         self._repo = TableRepo()
+        self._user_controller = user_controller
 
     def create_new(self):
         return self._repo.create_new()
@@ -19,10 +19,10 @@ class TableController:
     def remove_table(self, table_id):
         table = self._repo.get_by_id(table_id)
         for user_id in table.current_users_ids:
-            user = user_controller.get_by_id(user_id) 
+            user = self._user_controller.get_by_id(user_id) 
             table.remove_user(user)
             if user.is_bot:
-                user_controller.remove(user.id)
+                self._user_controller.remove(user.id)
         self.remove(table_id)
 
     def remove(self, table_id):

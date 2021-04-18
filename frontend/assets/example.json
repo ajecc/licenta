@@ -1,0 +1,64 @@
+{
+	"board": {
+		"cards": "['As', 'Td', '2c']",
+		"pot": 100,
+		"bb": 2
+	},
+	"users": [
+		{
+			"active": false,
+			"balance": 1000,
+			"dealer": false,
+			"name": "name0",
+			"seated": true,
+			"cards": ["Ad", "7d"],
+			"bet": 100
+		},
+		{
+			"active": false,
+			"balance": 1000,
+			"dealer": false,
+			"name": "name1",
+			"seated": true,
+			"cards": ["Ad", "7d"],
+			"bet": 100
+		},
+		{
+			"active": true,
+			"balance": 1000,
+			"dealer": false,
+			"name": "name2",
+			"seated": true,
+			"cards": ["Ad", "7d"],
+			"bet": 100
+		},
+		{
+			"active": false,
+			"balance": 1000,
+			"dealer": false,
+			"name": "name3",
+			"seated": true,
+			"cards": ["Ad", "7d"],
+			"bet": 100
+		},
+		{
+			"active": false,
+			"balance": 1000,
+			"dealer": true,
+			"name": "name4",
+			"seated": true,
+			"cards": ["Ad", "7d"],
+			"bet": 0
+		},
+		{
+			"active": false,
+			"balance": 1000,
+			"dealer": false,
+			"name": "name5",
+			"seated": true,
+			"cards": [],
+			"bet": 100
+		}
+	],
+	"your_index": 2
+}
