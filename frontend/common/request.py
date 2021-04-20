@@ -21,6 +21,18 @@ class Request:
     def join_table(self, table_code):
         request = self.session.post(f'{self.MAIN_URL}/join_table', json={'table_code': table_code})
         return request.status_code, request.text
+    
+    def get_game_state(self):
+        request = self.session.get(f'{self.MAIN_URL}/game_state')
+        return request.status_code, request.text
+    
+    def post_decision(self, decision_dict):
+        request = self.session.post(f'{self.MAIN_URL}/decision', json=decision_dict)
+        return request.status_code, request.text
+
+    def leave_table(self):
+        request = self.session.post(f'{self.MAIN_URL}/leave_table')
+        return request.status_code, request.text
 
 
 g_request = Request()

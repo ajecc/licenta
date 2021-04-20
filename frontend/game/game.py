@@ -8,17 +8,22 @@ import json
 import ast
 from game.user import UserWidget
 from game.image import ImageWidget
+from common.request import g_request
+import time
 
 
 class GameLayout(QVBoxLayout):
-    def __init__(self, game_state_json, window_size):
+    def __init__(self, game_state_json):
         super().__init__()
         self._game_state = json.loads(game_state_json)
         self._init_layouts()
         self._add_cards_to_board(ast.literal_eval(self._game_state['board']['cards']))
         for user in self._game_state['users']:
-            self._add_user(user)
-        self._add_buttons()
+            if user['seated']:
+                self._add_user(user)
+        self._your_user = self._game_state['users'][self._game_state['your_index']]
+        if self._your_user['is_active']:
+            self._add_buttons()
 
     def _init_layouts(self):
         self._board_layout = QHBoxLayout()
@@ -42,6 +47,8 @@ class GameLayout(QVBoxLayout):
 
     def _add_buttons(self):
         self._bet_line_edit = QLineEdit()
+        self._validator = QtGui.QIntValidator(self._find_min_bet(), self._your_user['balance'])
+        self._bet_line_edit.setValidator(self._validator)
         self._bet_line_edit.setAlignment(QtCore.Qt.AlignRight)
         self._bet_button = QPushButton('Bet')
         self._bet_button.clicked.connect(self._send_bet_decision)
@@ -51,28 +58,43 @@ class GameLayout(QVBoxLayout):
         self._check_button.clicked.connect(self._send_check_decision)
         self._fold_button = QPushButton('Fold')
         self._fold_button.clicked.connect(self._send_check_decision)
-        user = self._game_state['users'][self._game_state['your_index']]
-        if not user['active']:
+        if not self._your_user['active']:
             return
         self._buttons_layout.addWidget(self._bet_line_edit)
         self._buttons_layout.addWidget(self._bet_button)
-        if user['bet'] >= max([user['bet'] for user in self._game_state['users']]):
+        if self._your_user['bet'] >= max([user['bet'] for user in self._game_state['users']]):
             self._buttons_layout.addWidget(self._check_button)
         else:
             self._buttons_layout.addWidget(self._call_button)
             self._buttons_layout.addWidget(self._fold_button)
 
     def _send_check_decision(self):
-        pass
+        g_request.post_decision({'decision': 'CHECK'})
 
     def _send_call_decision(self):
-        pass
+        g_request.post_decision({'decision': 'CALL'})
 
     def _send_bet_decision(self):
-        pass
+        bet_ammount = int(self._bet_line_edit.text()) 
+        if bet_ammount < self._find_min_bet():
+            print(f'ERROR: invalid bet ammount: {bet_ammount}')
+        else:
+            g_request.post_decision({'decision': 'BET', 'bet_ammount': bet_ammount})
     
-    def _validate_bet_ammount(self, bet_ammount):
-        return True
+    def _find_min_bet(self):
+        max_bet = 0
+        second_max_bet = 0
+        for user in self._game_state['users']:
+            if user['bet'] > max_bet:
+                max_bet = user['bet']
+                second_max_bet = max_bet
+            elif user['bet'] >= self._game_state['board']['bb'] and user['bet'] > second_max_bet:
+                second_max_bet = user['bet']
+        bet_ammount = max_bet - second_max_bet
+        bet_ammount = max(bet_ammount, self._game_state['board']['bb'])
+        if bet_ammount > self._your_user['balance']:
+            bet_ammount = self._your_user['balance']
+        return bet_ammount
 
 
 class GameWindow(QMainWindow):
@@ -92,8 +114,16 @@ class GameWindow(QMainWindow):
             self._game_layout.setParent(None)
             del self._game_layout
         self._game_layout = layout
-        #self._game_layout.setParent(self)
+        # self._game_layout.setParent(self)
         self._main_layout.addLayout(self._game_layout)
         self.widget = QWidget()
         self.widget.setLayout(self._main_layout)
         self.setCentralWidget(self.widget)
+
+    def run_game_loop(self):
+        while True:
+            status, game_text = g_request.get_game_state()
+            if status != 200:
+                print(f'Error interacting from server: {game_text}')
+            self.set_layout(GameLayout(game_text))
+            time.sleep(0.1)

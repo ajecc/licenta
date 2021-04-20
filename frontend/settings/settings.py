@@ -8,6 +8,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QVBoxLayout, QHBox
 class SettingsWindow(QWidget):
     def __init__(self):
         super().__init__()
+        self._game_window = None
         self._init_window()
         self._init_layouts()
         self._add_forms()
@@ -55,10 +56,26 @@ class SettingsWindow(QWidget):
         status, data = g_request.create_table(bots_cnt)
         if status != 200:
             self._bots_form.set_error_text(data)
-        print(status, data)
-        
+        else:
+            self._start_game()
+
     def _join_button_action(self):
         self._join_form.set_error_text('')
         status, data = g_request.join_table(self._join_form.get_text())
         if status != 200:
             self._join_form.set_error_text(data)
+        else:
+            self._start_game()
+
+    def _start_game(self):
+        self.hide()
+        self._game_window.show()
+        self._game_window.run_game_loop()
+    
+    @property
+    def game_window(self):
+        return self._game_window
+   
+    @game_window.setter
+    def game_window(self, value):
+        self._game_window = value
