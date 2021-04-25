@@ -5,11 +5,13 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QVBoxLayout, QHBox
         QTableWidgetItem, QHeaderView, QFileDialog, QErrorMessage, QGridLayout, QMainWindow
 from PyQt5 import QtGui, QtCore
 import json
-import ast
 from game.user import UserWidget
 from game.image import ImageWidget
 from common.request import g_request
 import time
+
+
+LOOP_TIME = 100
 
 
 class GameLayout(QVBoxLayout):
@@ -17,12 +19,12 @@ class GameLayout(QVBoxLayout):
         super().__init__()
         self._game_state = json.loads(game_state_json)
         self._init_layouts()
-        self._add_cards_to_board(ast.literal_eval(self._game_state['board']['cards']))
+        self._add_cards_to_board(self._game_state['board']['cards'])
         for user in self._game_state['users']:
             if user['seated']:
                 self._add_user(user)
         self._your_user = self._game_state['users'][self._game_state['your_index']]
-        if self._your_user['is_active']:
+        if self._your_user['active']:
             self._add_buttons()
 
     def _init_layouts(self):
@@ -103,6 +105,7 @@ class GameWindow(QMainWindow):
         self._init_window()
         self._main_layout = QVBoxLayout(self) 
         self._game_layout = None
+        self._last_game_text = ''
 
     def _init_window(self):
         self.setWindowTitle('Game')
@@ -121,9 +124,24 @@ class GameWindow(QMainWindow):
         self.setCentralWidget(self.widget)
 
     def run_game_loop(self):
-        while True:
-            status, game_text = g_request.get_game_state()
-            if status != 200:
-                print(f'Error interacting from server: {game_text}')
-            self.set_layout(GameLayout(game_text))
-            time.sleep(0.1)
+        self._timer = QtCore.QTimer() 
+        self._timer.timeout.connect(self._update)
+        self._timer.start(LOOP_TIME)
+
+    def _update(self):
+        # status, game_text = 200, open('assets/example.json').read()
+        status, game_text = g_request.get_game_state()
+        if status != 200:
+            print(f'Error interacting from server: {game_text}')
+        if len(game_text) < 2:
+            print("Didn't receive valid game text yet")
+            return
+        print(game_text)
+        if self._last_game_text == game_text:
+            game_state = json.loads(game_text)
+            your_user = game_state['users'][game_state['your_index']]
+            if your_user['active']:
+                return
+        self._last_game_text = game_text
+        game_layout = GameLayout(game_text)
+        self.set_layout(game_layout)

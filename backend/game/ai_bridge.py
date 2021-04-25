@@ -3,11 +3,10 @@ import os
 from model.decision import Decision
 
 class AiBridge:
-    DLL_PATH = '.dll'
-
     def __init__(self):
-        os.add_dll_directory(AiBridge.DLL_PATH)
-        user_dll = ctypes.WinDLL('user.dll')
+        os.chdir('ai')
+        os.add_dll_directory(os.getcwd())
+        user_dll = ctypes.WinDLL('ai.dll')
         process_query_proto = ctypes.WINFUNCTYPE(ctypes.c_double, ctypes.c_char_p)
         update_symbols_proto = ctypes.WINFUNCTYPE(ctypes.c_int, ctypes.c_char_p)
         process_query_params = (1, 'pquery', 0),

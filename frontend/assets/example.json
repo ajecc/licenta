@@ -1,6 +1,6 @@
 {
 	"board": {
-		"cards": "['As', 'Td', '2c']",
+		"cards": ["As", "Td", "2c"],
 		"pot": 100,
 		"bb": 2
 	},

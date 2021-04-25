@@ -5,6 +5,10 @@ class UserRepo:
     def __init__(self):
         pass
 
+    def create_new(self, id):
+        user = User(id)
+        user.update_to_redis()
+
     def get_by_id(self, id):
         return User.from_redis(id)
 

@@ -14,6 +14,8 @@ class Decision:
         self._bet_ammount = bet_ammount
 
     def __eq__(self, other):
+        if type(other) == str:
+            return self._decision == other
         return self._decision == other.decision
 
     def to_json(self):
@@ -26,14 +28,28 @@ class Decision:
     def decision(self):
         return self._decision
 
+    @decision.setter
+    def decision(self, value):
+        self._decision = value
+
+    @property
+    def bet_ammount(self):
+        return self._bet_ammount
+
+    @bet_ammount.setter
+    def bet_ammount(self, value):
+        self._bet_ammount = value
+
     @classmethod
     def from_json(cls, decision_json):
         if decision_json is None:
             return None
-        loaded = json.loads('decision_json')
+        decision_json = decision_json.replace('\'', '"')
+        loaded = json.loads(decision_json)
         if 'decision' not in loaded.keys():
             raise ValueError('Decision json has to contain "decision"')
         decision = loaded['decision']
+        bet_ammount = None
         if decision == Decision.BET:
             if 'bet_ammount' not in loaded.keys():
                 raise ValueError('Decision json with BET has to contain "bet_ammount"') 

@@ -3,23 +3,48 @@ class Position:
     SB = ['SB', 1]
     BB = ['BB', 2]
     UTG = ['UTG', 3]
-    UTG_1 = ['UTG+1', 4]
-    UTG_2 = ['UTG+2', 5]
+    UTG_1 = ['UTG_1', 4]
+    UTG_2 = ['UTG_2', 5]
 
-    def __init__(self, position, index=None):
+    def __init__(self, position=None, index=None):
+        if position is None and index is None:
+            raise ValueError('position and index can\'t both be None')
+        if position is None:
+            self._index = index
+            if self._index == 0:
+                self._position = 'D'
+            elif self._index == 1:
+                self._position = 'SB'
+            elif self._index == 2:
+                self._position = 'BB'
+            elif self._index == 3:
+                self._position = 'UTG'
+            elif self._index == 4:
+                self._position = 'UTG_1'
+            else:
+                self._position = 'UTG_2'
+            return
         self._position = position
         if index is not None:
             self._index = index
         else:
-            for i, pos in enumerate(__POSITIONS_CACHE):
-                if pos == position:
-                    self._index = i
-                    break
+            if self._position == Position.D:
+                self._index = 0
+            elif self._position == Position.SB:
+                self._index = 1
+            elif self._position == Position.BB:
+                self._index = 2
+            elif self._position == Position.UTG:
+                self._index = 3
+            elif self._position == Position.UTG_1:
+                self._index = 4
+            else:
+                self._index = 5
 
     def get_next(self):
-        if self._index == len(__POSITIONS_CACHE) - 1:
-            return __POSITIONS_CACHE[0]
-        return __POSITIONS_CACHE[self._index + 1]
+        if self._index == Position.UTG_2[1]:
+            return Position(index=0)
+        return Position(index=self._index + 1)
     
     def __eq__(self, other):
         if type(other) is list:
@@ -40,7 +65,3 @@ class Position:
     @property
     def index(self):
         return self._index
-         
-
-__POSITIONS_CACHE = [Position(*Position.D), Position(*Position.SB), Position(*Position.BB),
-        Position(*Position.UTG), Position(*Position.UTG_1), Position(*Position.UTG_2)]

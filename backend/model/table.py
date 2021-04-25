@@ -1,7 +1,7 @@
 import random
 import string
 from model.elem_bounds import ID_LEN 
-from model.card import Card
+from model.card import Card, generate_random
 from extensions import g_redis
 
 
@@ -13,9 +13,11 @@ class Table:
         table._current_bet = g_redis.get(id, 'table:current_bet')
         table._pot = g_redis.get(id, 'table:pot')
         table._cards = g_redis.get_list(id, 'table:cards')
+        table._cards = [Card(c) for c in table._cards]
         table._current_users_ids = g_redis.get_list(id, 'table:current_users_ids')
         table._current_hand_users_ids = g_redis.get_list(id, 'table:current_hand_users_ids')
         table._used_cards = g_redis.get_list(id, 'table:used_cards')
+        table._used_cards = [Card(c) for c in table._used_cards]
         return table
 
     def __init__(self, bots_cnt=None, id=None):
@@ -44,7 +46,6 @@ class Table:
         self.update_to_redis()
 
     def remove_current_hand_user(self, user):
-        user.leave_table()
         self._current_hand_users_ids = list(filter(lambda id: id != user.id, self._current_hand_users_ids))
         self.update_to_redis()
 
@@ -55,14 +56,14 @@ class Table:
         g_redis.update_list(self._id, 'table:cards', [str(card) for card in self._cards])
         g_redis.update_list(self._id, 'table:current_users_ids', self._current_users_ids)
         g_redis.update_list(self._id, 'table:current_hand_users_ids', self._current_hand_users_ids)
-        g_redis.update_list(self._id, 'table:used_cards', self._used_cards)
+        g_redis.update_list(self._id, 'table:used_cards', [str(card) for card in self._used_cards])
 
     def bet(self, bet):
-        self.pot += bet
-        self.current_bet = bet
+        self._pot += bet
+        self._current_bet = bet
 
     def add_card(self):
-        self._cards.append(Card.generate_random(self._used_cards))
+        self._cards.append(generate_random(self._used_cards))
 
     def append_used_card(self, card):
         self._used_cards.append(card)
@@ -73,6 +74,10 @@ class Table:
         self._cards = []
         self._current_hand_users_ids = []
         self._used_cards = []
+
+    @property
+    def id(self):
+        return self._id
 
     @property
     def pot(self):

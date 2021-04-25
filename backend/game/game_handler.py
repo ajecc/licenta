@@ -1,17 +1,18 @@
 from model.position import Position
 from model.decision import Decision
 from model.user import User
-from model.card import Card
+from model.card import Card, generate_random
 from model.table import Table
 from model.cred import Cred
 from controller.controllers import user_controller, table_controller
 from pokereval.hand_evaluator import HandEvaluator
 from game.ai_bridge import AiBridge
 from extensions import g_redis
+import sys
 import time
 import copy
-import asyncio
 import json
+import time
 
 
 class GameHandler:
@@ -21,23 +22,40 @@ class GameHandler:
         self._current_users = []
         self._ai_bridge = AiBridge()
         self._cards_visible = False
+        self._to_remove = []
 
-    async def start_game(self):
+    def start_game(self):
+        self._seat_users()
+        self._assign_positions()
         while True:
+            print('updating current users')
             self._update_current_users()
+            for user in self._current_hand_users:
+                print(user)
             if not self._have_human_users():
                 break
+            print('have humans')
+            print('processing preflop')
             self._process_preflop()
+            print('processing nonpreflop')
             self._process_non_preflop()
+            print('deciding winner')
             self._decide_winner()
             self._cards_visible = True
-            await asyncio.sleep(5)
+            print('sleeping a bit')
+            time.sleep(5)
             self._cards_visible = False
+            print('updating users')
             self._update_current_users()
-            self._shift_users_position()
+            #print('shifting positions')
+            #self._shift_users_position()
+            print('clearing')
             self._clear()
+            print('updating to redis')
             self._update_to_redis()
         table_controller.remove_table(self._table.id)
+        time.sleep(60)
+        sys.exit()
 
     def _have_human_users(self):
         for user in self._current_hand_users:
@@ -45,34 +63,51 @@ class GameHandler:
                 return True
         return False
 
+    def _assign_positions(self):
+        self._current_users = [User.from_redis(id) for id in self._table.current_users_ids]
+        for i, _ in enumerate(self._current_users):
+            self._current_users[i].position = Position(index=i)
+            self._current_users[i].update_to_redis()
+
+    def _seat_users(self):
+        self._current_users = [User.from_redis(id) for id in self._table.current_users_ids]
+        for i, _ in enumerate(self._current_users):
+            self._current_users[i].is_seated = True
+            self._current_users[i].update_to_redis()
+
     def _update_current_users(self):
         self._table.current_hand_users_ids = []
         new_current_users_ids = []
-        for user in self._table._current_users_ids:
-            user = User.from_redis(user)
-            if user._is_active:
-                self._table.current_hand_users_ids.append(user)
+        for id in self._table._current_users_ids:
+            user = User.from_redis(id)
+            print('got user')
+            if user.is_seated:
+                self._table.current_hand_users_ids.append(user.id)
                 new_current_users_ids.append(user.id)
+            elif user.is_bot:
+                table_controller.remove_user_from_table(user)
+                user_controller.remove(user.id)
             else:
-                user_controller.remove_user_from_table(user.id)
+                table_controller.remove_user_from_table(user)
         self._table.current_users_ids = new_current_users_ids
-        # TODO: check if we can do it like this 
-        # (having different objects for current_user and current_hand_users)
         self._current_users = [User.from_redis(id) for id in self._table.current_users_ids]
-        self._current_hand_users = [User.from_redis(id) for id in self._table.current_hand_users_ids]
+        self._current_hand_users = []
+        for i, _ in enumerate(self._current_users):
+            self._current_hand_users.append(self._current_users[i])
 
     def _process_preflop(self):
         self._distribute_cards()
-        self._find_by_position(Position(*Position.SB)).bet(self._table.bb // 2)
-        self._table.bet(self._table.bb // 2)
-        self._find_by_position(Position(*Position.BB)).bet(self._table.bb)
-        self._table.bet(self._table.bb)
+        bet = self._find_by_position(Position(*Position.SB)).bet(self._table.bb // 2)
+        self._table.bet(bet)
+        bet = self._find_by_position(Position(*Position.BB)).bet(self._table.bb)
+        self._table.bet(bet)
         # TODO: handle special case: heads-up
         self._sort_current_hand_users_by_pos(Position(*Position.UTG))
         self._start_betting_round()
 
     def _find_by_position(self, position):
         for user in self._current_hand_users:
+            print(f'user.position = {user.position}')
             if user.position == position:
                 return user
         return None
@@ -81,13 +116,13 @@ class GameHandler:
         # TODO: handle heads-up case
         self._sort_current_hand_users_by_pos(Position(*Position.SB))
         for round_ind in range(3):
+            if len(self._current_hand_users) <= 1:
+                break
             self._table.add_card()
             if round_ind == 0:
                 self._table.add_card()
                 self._table.add_card()
             self._start_betting_round()
-            if self._table.have_no_more_current_users():
-                break
 
     def _shift_users_position(self):
         # TODO: correct this. It is wrong. Find the dealer. 
@@ -103,19 +138,29 @@ class GameHandler:
 
     def _start_betting_round(self):
         # TODO: repeat this
-        for user in self._current_hand_users:
-            if user.is_bot:
-                decision = self._ai_bridge.get_decision(self.to_json_for_user(user.id))
+        self._to_remove = []
+        for i, _ in enumerate(self._current_hand_users):
+            if len(self._to_remove) == len(self._current_hand_users) - 1:
+                break
+            self._current_hand_users[i].is_active = True
+            if self._current_hand_users[i].is_bot:
+                # decision = self._ai_bridge.get_decision(self.to_json_for_self._current_hand_users[i](self._current_hand_users[i].id))
+                decision = Decision(Decision.FOLD)
             else:
-                decision = self.wait_for_decision(user)
-                user.signal_processed_decision()
+                decision = self.wait_for_decision(self._current_hand_users[i])
+                self._current_hand_users[i].signal_processed_decision()
             if decision is None:
                 decision = Decision.FOLD
-                user.is_active = False
+                self._current_hand_users[i].is_seated = False
             if decision.bet_ammount is not None:
-                if not self._check_bet_ammount(decision.bet_ammount, user):
+                if not self._check_bet_ammount(decision.bet_ammount, self._current_hand_users[i]):
                     decision = Decision(Decision.CHECK)
-            self._alter_on_decision(user, decision)
+            self._current_hand_users[i].is_active = False
+            self._alter_on_decision(self._current_hand_users[i], decision)
+            time.sleep(2)
+        for user in self._to_remove:
+            self._table.remove_current_hand_user(user)
+            self._current_hand_users = list(filter(lambda u: u.id != user.id, self._current_hand_users))
         self._update_to_redis()
 
     def _check_bet_ammount(self, bet_ammount, user):
@@ -128,37 +173,38 @@ class GameHandler:
         return True
 
     def _add_card(self):
-        card = Card.generate_random(self._used_cards)
+        card = generate_random(self._used_cards)
         self._used_cards.append(card)
         self._cards.append(card)
     
     def _distribute_cards(self):
-        for user in self._current_hand_users:
-            card_0 = Card.generate_random(self._table.used_cards)
-            self._table.append_user_card(card_0)
-            card_1 = Card.generate_random(self._table.used_cards)
+        for i, user in enumerate(self._current_hand_users):
+            card_0 = generate_random(self._table.used_cards)
+            self._table.append_used_card(card_0)
+            card_1 = generate_random(self._table.used_cards)
             self._table.append_used_card(card_1)
-            user.hand = [card_0, card_1]
+            self._current_hand_users[i].hand = [card_0, card_1]
 
     def _decide_winner(self):
+        print(f'Deciding winner len is: {len(self._current_hand_users)}')
         board = [c.to_pokereval() for c in self._table.cards]
         winner = None
         max_score = -1
-        for user in self._current_hand_users:
+        for i, user in enumerate(self._current_hand_users):
             hole = [c.to_pokereval() for c in user.hand]
             score = HandEvaluator.evaluate_hand(hole, board)
             if score > max_score:
-                winner = user
+                winner = self._current_hand_users[i]
                 max_score = score
         winner.balance += self._table.pot
 
     def _sort_current_hand_users_by_pos(self, start_pos):
         self._current_hand_users = sorted(self._current_hand_users,
-                lambda u: u.position.index if u.position.index >= start_pos.index else Position(*Position.UTG_2).index + 1 + u.position.index) 
+                key=lambda u: u.position.index if u.position.index >= start_pos.index else Position(*Position.UTG_2).index + 1 + u.position.index) 
 
     def _clear(self):
-        for user in self._current_users:
-            user.clear()
+        for i, _ in enumerate(self._current_users):
+            self._current_users[i].clear()
         self._table.clear()
 
     def _update_to_redis(self):
@@ -168,14 +214,14 @@ class GameHandler:
     
     def _alter_on_decision(self, user, decision):
         if decision == Decision.FOLD or (decision == Decision.CHECK and self._table.current_bet > user.current_bet and user.current_bet != user.balance):
-            self._table.remove_current_hand_user(user.id)
-            self._current_hand_users_ids = list(filter(lambda u: u.id != user.id, self._current_hand_users_ids))
+            user.hand = []
+            self._to_remove.append(user)
         elif decision == Decision.CALL:
-            decision.bet_ammount = 1 # TODO
-        # TODO: this is wrong. Tweak later
-        user.balance -= decision.bet_ammount
-        user.current_bet = decision.bet_ammount
-        self._table.bet(decision.bet_ammount)
+            decision.bet_ammount = 1  # TODO
+        # TODO: this might be wrong. Tweak later
+        else:
+            bet = user.bet(decision.bet_ammount)
+            self._table.bet(bet)
             
     def wait_for_decision(self, user):
         if user.balance == 0:
@@ -202,14 +248,16 @@ class GameHandler:
         def add_user(user):
             cards = []
             if self._cards_visible or user.id == user_id:
-                cards = user.cards 
+                cards = user.hand
+            elif len(user.hand) != 0:
+                cards = ['back', 'back']
             json_['users'].append({'active': user.is_active,
                 'seated': True,
                 'balance': user.balance,
                 'dealer': True if user.position == 'D' else False,
                 'name': Cred.from_redis(user.id).username,
                 'bet': user.current_bet,
-                'cards': cards})
+                'cards': [str(card) for card in cards]})
 
         def add_blank_user():
             json_['users'].append({'active': False,
@@ -235,12 +283,13 @@ class GameHandler:
                 if user.id == self._current_users[index - 2].id:
                     break
                 add_user(user)
-        while len(json_['users'] < 6):
+        while len(json_['users']) < 6:
             add_blank_user()
+        json_['your_index'] = 2
         return json.dumps(json_)
 
-    async def update_to_redis_periodically(self):
+    def update_to_redis_periodically(self):
         while True:
             for user in self._current_users:
                 g_redis.set_raw(f'game#{self._table.id}#{user.id}', self.to_json_for_user(user.id))
-            await asyncio.sleep(0.1)
+            time.sleep(0.1)

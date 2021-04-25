@@ -8,6 +8,7 @@ from auth.login import LoginWindow
 from auth.register import RegisterWindow
 from settings.settings import SettingsWindow
 from game.game import GameWindow, GameLayout
+from threading import Thread
 
 
 if __name__ == '__main__':
@@ -22,4 +23,6 @@ if __name__ == '__main__':
     register_window.settings_window = settings_window
     settings_window.game_window = game_window
     login_window.show()
+    #game_window.show()
+    #game_window.run_game_loop()
     sys.exit(app.exec_())

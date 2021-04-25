@@ -26,6 +26,8 @@ class UserWidget(QWidget):
         self._cards_layout.addStretch()
         if len(self._user['cards']) == 0:
             self._user['cards'] = ['blank', 'blank']
+        elif len(self._user['cards']) == 1:
+            self._user['cards'].append('back')
         self._card_0 = ImageWidget(self._user['cards'][0])
         self._card_1 = ImageWidget(self._user['cards'][1])
         self._cards_layout.addWidget(self._card_0)

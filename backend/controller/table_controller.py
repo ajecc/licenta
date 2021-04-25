@@ -6,15 +6,15 @@ class TableController:
         self._repo = TableRepo()
         self._user_controller = user_controller
 
-    def create_new(self):
-        return self._repo.create_new()
+    def create_new(self, bots_cnt):
+        return self._repo.create_new(bots_cnt)
 
     def get_by_id(self, id):
         return self._repo.get_by_id(id)
 
     def remove_user_from_table(self, user):
         table = self.get_by_id(user.table_id)
-        table.remove_user_from_table(user)
+        table.remove_user(user)
 
     def remove_table(self, table_id):
         table = self._repo.get_by_id(table_id)
