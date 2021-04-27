@@ -28,15 +28,15 @@ class Position:
         if index is not None:
             self._index = index
         else:
-            if self._position == Position.D:
+            if self._position == 'D':
                 self._index = 0
-            elif self._position == Position.SB:
+            elif self._position == 'SB':
                 self._index = 1
-            elif self._position == Position.BB:
+            elif self._position == 'BB':
                 self._index = 2
-            elif self._position == Position.UTG:
+            elif self._position == 'UTG':
                 self._index = 3
-            elif self._position == Position.UTG_1:
+            elif self._position == 'UTG_1':
                 self._index = 4
             else:
                 self._index = 5
@@ -54,6 +54,9 @@ class Position:
         if type(other) is str:
             return self._position == other
         return self._position == other.position
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
     
     def __str__(self):
         return self._position

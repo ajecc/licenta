@@ -58,9 +58,9 @@ class Table:
         g_redis.update_list(self._id, 'table:current_hand_users_ids', self._current_hand_users_ids)
         g_redis.update_list(self._id, 'table:used_cards', [str(card) for card in self._used_cards])
 
-    def bet(self, bet):
-        self._pot += bet
-        self._current_bet = bet
+    def bet(self, bet, current_bet_user):
+        self._pot += bet 
+        self._current_bet = max(self._current_bet, current_bet_user)
 
     def add_card(self):
         self._cards.append(generate_random(self._used_cards))

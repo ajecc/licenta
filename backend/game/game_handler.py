@@ -42,13 +42,14 @@ class GameHandler:
             print('deciding winner')
             self._decide_winner()
             self._cards_visible = True
+            self._update_to_redis()
             print('sleeping a bit')
             time.sleep(5)
             self._cards_visible = False
             print('updating users')
             self._update_current_users()
-            #print('shifting positions')
-            #self._shift_users_position()
+            print('shifting positions')
+            self._shift_users_position()
             print('clearing')
             self._clear()
             print('updating to redis')
@@ -76,6 +77,7 @@ class GameHandler:
             self._current_users[i].update_to_redis()
 
     def _update_current_users(self):
+        self._table.current_users_ids = Table.from_redis(self._table.id).current_users_ids
         self._table.current_hand_users_ids = []
         new_current_users_ids = []
         for id in self._table._current_users_ids:
@@ -98,16 +100,15 @@ class GameHandler:
     def _process_preflop(self):
         self._distribute_cards()
         bet = self._find_by_position(Position(*Position.SB)).bet(self._table.bb // 2)
-        self._table.bet(bet)
+        self._table.bet(bet, bet)
         bet = self._find_by_position(Position(*Position.BB)).bet(self._table.bb)
-        self._table.bet(bet)
+        self._table.bet(bet, bet)
         # TODO: handle special case: heads-up
         self._sort_current_hand_users_by_pos(Position(*Position.UTG))
         self._start_betting_round()
 
     def _find_by_position(self, position):
         for user in self._current_hand_users:
-            print(f'user.position = {user.position}')
             if user.position == position:
                 return user
         return None
@@ -125,32 +126,38 @@ class GameHandler:
             self._start_betting_round()
 
     def _shift_users_position(self):
-        # TODO: correct this. It is wrong. Find the dealer. 
-        # If there is no dealer assign it to the SB and so on 
-        # Shift the dealer
-        # Then set all positions according to that 
         # TODO: handle heads-up
-        new_current_users = []
-        for user in self._current_users:
-            user.position = user.position.get_next()
-            new_current_users.append(user)
-        self._current_users = new_current_users
+        for i, user in enumerate(self._current_users):
+            if user.position == Position.D:
+                dealer_idx = i
+                break
+        current_position_index = 0
+        for i in range(dealer_idx - 1, -1, -1):
+            self._current_users[i].position = Position(index=current_position_index)
+            current_position_index += 1
+        for i in range(len(self._current_users) - 1, dealer_idx - 1, -1):
+            self._current_users[i].position = Position(index=current_position_index)
+            current_position_index += 1
 
     def _start_betting_round(self):
         # TODO: repeat this
         self._to_remove = []
         for i, _ in enumerate(self._current_hand_users):
+            print(self._current_hand_users[i].position.position)
             if len(self._to_remove) == len(self._current_hand_users) - 1:
                 break
             self._current_hand_users[i].is_active = True
             if self._current_hand_users[i].is_bot:
+                print('Getting decision from bot')
                 # decision = self._ai_bridge.get_decision(self.to_json_for_self._current_hand_users[i](self._current_hand_users[i].id))
                 decision = Decision(Decision.FOLD)
             else:
+                print('Getting decision from human')
                 decision = self.wait_for_decision(self._current_hand_users[i])
                 self._current_hand_users[i].signal_processed_decision()
             if decision is None:
-                decision = Decision.FOLD
+                print('No decision from user')
+                decision = Decision(Decision.FOLD)
                 self._current_hand_users[i].is_seated = False
             if decision.bet_ammount is not None:
                 if not self._check_bet_ammount(decision.bet_ammount, self._current_hand_users[i]):
@@ -168,7 +175,7 @@ class GameHandler:
             return True
         if bet_ammount > user.balance:
             return False 
-        if bet_ammount < self.table.bb or bet_ammount < 2 * self.talbe.current_bet:
+        if bet_ammount < self._table.bb or bet_ammount < 2 * self._table.current_bet:
             return False
         return True
 
@@ -196,11 +203,28 @@ class GameHandler:
             if score > max_score:
                 winner = self._current_hand_users[i]
                 max_score = score
+        print(f'Pot is: {self._table.pot}')
         winner.balance += self._table.pot
 
     def _sort_current_hand_users_by_pos(self, start_pos):
-        self._current_hand_users = sorted(self._current_hand_users,
-                key=lambda u: u.position.index if u.position.index >= start_pos.index else Position(*Position.UTG_2).index + 1 + u.position.index) 
+        print(f'Sorting by: {start_pos}')
+        if start_pos == Position.D:
+            self._current_hand_users = sorted(self._current_hand_users, key=lambda u: u.position.index)
+            print([u.position.position for u in self._current_hand_users])
+            return
+        self._sort_current_hand_users_by_pos(Position.D)
+        new_current_hand_users = []
+        position_index = len(self._current_hand_users)
+        for i in range(len(self._current_hand_users)):
+            if self._current_hand_users[i].position == start_pos:
+                position_index = i
+                break
+        for i in range(position_index, len(self._current_hand_users)):
+            new_current_hand_users.append(self._current_hand_users[i])
+        for i in range(0, position_index):
+            new_current_hand_users.append(self._current_hand_users[i])
+        self._current_hand_users = new_current_hand_users
+        print([u.position.position for u in self._current_hand_users])
 
     def _clear(self):
         for i, _ in enumerate(self._current_users):
@@ -210,27 +234,33 @@ class GameHandler:
     def _update_to_redis(self):
         for user in self._current_users:
             user.update_to_redis()
+        self._table.current_users_ids = Table.from_redis(self._table.id).current_users_ids
         self._table.update_to_redis()
-    
+
     def _alter_on_decision(self, user, decision):
-        if decision == Decision.FOLD or (decision == Decision.CHECK and self._table.current_bet > user.current_bet and user.current_bet != user.balance):
+        print(self._table.current_bet, user.current_bet)
+        if decision == Decision.FOLD or (decision == Decision.CHECK and self._table.current_bet > user.current_bet and user.balance != 0):
             user.hand = []
             self._to_remove.append(user)
+        elif decision == Decision.CHECK:
+            return
         elif decision == Decision.CALL:
-            decision.bet_ammount = 1  # TODO
-        # TODO: this might be wrong. Tweak later
+            decision.bet_ammount = self._table.current_bet - user.current_bet
+            bet = user.bet(decision.bet_ammount)
+            self._table.bet(bet, user.current_bet)
         else:
             bet = user.bet(decision.bet_ammount)
-            self._table.bet(bet)
+            self._table.bet(bet, user.current_bet)
             
     def wait_for_decision(self, user):
         if user.balance == 0:
-            return Decision.CHECK
+            return Decision(Decision.CHECK)
         poll_tries = 100
         interval = Decision.DECISION_TIME / (poll_tries - 1) 
         for _ in range(poll_tries):
             user = User.from_redis(user.id)
             if user.decision is not None:
+                print(f'got decision from user: {user.decision.decision}')
                 decision = user.decision
                 user.decision = None
                 return decision
