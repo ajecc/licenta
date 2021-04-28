@@ -1,5 +1,6 @@
 import ctypes
 import os
+import json
 from model.decision import Decision
 
 class AiBridge:
@@ -15,22 +16,49 @@ class AiBridge:
         self._update_symbols = update_symbols_proto(('update_symbols', user_dll), update_symbols_params)
 
     def get_decision(self, symbols_json):
-        self._update_symbols(symbols_json)
-        self._process_query('dll$beep')
-        sum = self._process_query('dll$betsize')
+        self._update_symbols_wrapper(self._convert_to_dll_symbols(symbols_json))
+        self._process_query_wrapper('dll$beep')
+        sum = self._process_query_wrapper('dll$betsize')
         EPS = 0.1
-        if abs(self._process_query('dll$check') - 1) < EPS:
+        if abs(self._process_query_wrapper('dll$check') - 1) < EPS:
             return Decision(Decision.CHECK)
-        elif abs(self._process_query('dll$call') - 1) < EPS:
+        elif abs(self._process_query_wrapper('dll$call') - 1) < EPS:
             return Decision(Decision.CALL)
-        elif abs(self._process_query('dll$bet') - 1) < EPS:
+        elif abs(self._process_query_wrapper('dll$bet') - 1) < EPS:
             sum = int(sum + EPS)
             return Decision(Decision.BET, sum)
         return Decision(Decision.FOLD)
 
-    def _process_query(self, query):
+    def _process_query_wrapper(self, query):
         return self._process_query(ctypes.c_char_p(query.encode()))
 
-    def _update_symbols(self, symbols_json):
-        return self._update_symbols(ctypes.c_char_p(symbols_json.encode()))
-
+    def _update_symbols_wrapper(self, symbols):
+        return self._update_symbols(ctypes.c_char_p(symbols.encode()))
+    
+    def _convert_to_dll_symbols(self, symbols_json):
+        symbols = json.loads(symbols_json)
+        dll_symbols = ''
+        for i in range(5):
+            card = 'nocard'
+            if len(symbols['board']['cards']) > i:
+                card = symbols['board']['cards'][i]
+            dll_symbols += f'c0cardface{i}:{card}\n'
+        dll_symbols += f'c0pot0:{symbols["board"]["pot"]}\n'
+        dll_symbols += 'c0pot1:0\n'
+        for i, user in enumerate(symbols['users']):
+            if len(user['cards']) != 0:
+                temp = 1
+            else:
+                temp = 0
+            dll_symbols += f'p{i}active:{temp}\n'
+            dll_symbols += f'p{i}balance:{user["balance"]}\n'
+            dll_symbols += f'p{i}bet:{user["bet"]}\n'
+            if i == 2:
+                dll_symbols += f'p{i}cardface0:{user["cards"][0]}\n'
+                dll_symbols += f'p{i}cardface1:{user["cards"][1]}\n'
+            dll_symbols += f'p{i}dealer:{int(user["dealer"])}\n'
+            # NOTE: as of now, we don't care about the name
+            dll_symbols += f'p{i}name:name\n'
+            dll_symbols += f'p{i}seated:{int(user["seated"])}\n'
+        dll_symbols += f'bblind:{symbols["board"]["bb"]}'
+        return dll_symbols

@@ -49,12 +49,12 @@ class UserWidget(QWidget):
         self._layout.addLayout(self._info_layout)
 
     def _add_bet_elems(self):
-        if self._user['bet'] != 0:
-            bet_label = QLabel('Bet:  ' + str(self._user['bet']))
-            self._bet_layout.addWidget(bet_label)
+        bet_label = QLabel('Bet:  ' + str(self._user['bet']))
+        bet_label.setAlignment(Qt.AlignCenter)
+        self._bet_layout.addWidget(bet_label)
         if self._user['dealer']:
             image = ImageWidget('dealer', scale=(20, 20))
-            image.setAlignment(Qt.AlignRight)
+            #image.setAlignment(Qt.AlignRight)
             self._bet_layout.addWidget(image)
         else:
             image = ImageWidget('blank_dealer', scale=(20, 20))

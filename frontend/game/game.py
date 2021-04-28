@@ -11,19 +11,20 @@ from common.request import g_request
 import time
 
 
-LOOP_TIME = 100
+LOOP_TIME = 100  # ms
 
 
 class GameLayout(QVBoxLayout):
     def __init__(self, game_state_json):
         super().__init__()
         self._game_state = json.loads(game_state_json)
+        self._your_user = self._game_state['users'][self._game_state['your_index']]
+        self._game_state['users'] = self._game_state['users'][::-1]
         self._init_layouts()
         self._add_cards_to_board(self._game_state['board']['cards'])
         for user in self._game_state['users']:
             if user['seated']:
                 self._add_user(user)
-        self._your_user = self._game_state['users'][self._game_state['your_index']]
         if self._your_user['active']:
             self._add_buttons()
 
@@ -77,7 +78,10 @@ class GameLayout(QVBoxLayout):
         g_request.post_decision({'decision': 'CALL'})
 
     def _send_bet_decision(self):
-        bet_ammount = int(self._bet_line_edit.text()) 
+        bet_text = self._bet_line_edit.text()
+        if len(bet_text) == 0:
+            bet_text = 0
+        bet_ammount = int(bet_text) 
         if bet_ammount < self._find_min_bet():
             print(f'ERROR: invalid bet ammount: {bet_ammount}')
         else:

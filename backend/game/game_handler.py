@@ -48,8 +48,8 @@ class GameHandler:
             self._cards_visible = False
             print('updating users')
             self._update_current_users()
-            print('shifting positions')
-            self._shift_users_position()
+            #print('shifting positions')
+            #self._shift_users_position()
             print('clearing')
             self._clear()
             print('updating to redis')
@@ -77,10 +77,10 @@ class GameHandler:
             self._current_users[i].update_to_redis()
 
     def _update_current_users(self):
-        self._table.current_users_ids = Table.from_redis(self._table.id).current_users_ids
+        #self._table.current_users_ids = Table.from_redis(self._table.id).current_users_ids
         self._table.current_hand_users_ids = []
         new_current_users_ids = []
-        for id in self._table._current_users_ids:
+        for id in self._table.current_users_ids:
             user = User.from_redis(id)
             print('got user')
             if user.is_seated:
@@ -91,8 +91,8 @@ class GameHandler:
                 user_controller.remove(user.id)
             else:
                 table_controller.remove_user_from_table(user)
-        self._table.current_users_ids = new_current_users_ids
-        self._current_users = [User.from_redis(id) for id in self._table.current_users_ids]
+        #self._table.current_users_ids = new_current_users_ids
+        #self._current_users = [User.from_redis(id) for id in self._table.current_users_ids]
         self._current_hand_users = []
         for i, _ in enumerate(self._current_users):
             self._current_hand_users.append(self._current_users[i])
@@ -123,6 +123,9 @@ class GameHandler:
             if round_ind == 0:
                 self._table.add_card()
                 self._table.add_card()
+            self._table.current_bet = 0
+            for i, _ in enumerate(self._current_users):
+                self._current_users[i].current_bet = 0
             self._start_betting_round()
 
     def _shift_users_position(self):
@@ -140,34 +143,49 @@ class GameHandler:
             current_position_index += 1
 
     def _start_betting_round(self):
-        # TODO: repeat this
-        self._to_remove = []
-        for i, _ in enumerate(self._current_hand_users):
-            print(self._current_hand_users[i].position.position)
-            if len(self._to_remove) == len(self._current_hand_users) - 1:
-                break
-            self._current_hand_users[i].is_active = True
-            if self._current_hand_users[i].is_bot:
-                print('Getting decision from bot')
-                # decision = self._ai_bridge.get_decision(self.to_json_for_self._current_hand_users[i](self._current_hand_users[i].id))
-                decision = Decision(Decision.FOLD)
-            else:
-                print('Getting decision from human')
-                decision = self.wait_for_decision(self._current_hand_users[i])
-                self._current_hand_users[i].signal_processed_decision()
-            if decision is None:
-                print('No decision from user')
-                decision = Decision(Decision.FOLD)
-                self._current_hand_users[i].is_seated = False
-            if decision.bet_ammount is not None:
-                if not self._check_bet_ammount(decision.bet_ammount, self._current_hand_users[i]):
-                    decision = Decision(Decision.CHECK)
-            self._current_hand_users[i].is_active = False
-            self._alter_on_decision(self._current_hand_users[i], decision)
-            time.sleep(2)
-        for user in self._to_remove:
-            self._table.remove_current_hand_user(user)
-            self._current_hand_users = list(filter(lambda u: u.id != user.id, self._current_hand_users))
+        continue_betting = True
+        while continue_betting:
+            self._to_remove = []
+            for i, _ in enumerate(self._current_hand_users):
+                print(self._current_hand_users[i].position.position)
+                if len(self._to_remove) == len(self._current_hand_users) - 1:
+                    break
+                decision_time = None
+                self._current_hand_users[i].is_active = True
+                if self._current_hand_users[i].is_bot:
+                    print('Getting decision from bot')
+                    decision_time = time.time()
+                    decision = self._ai_bridge.get_decision(self.to_json_for_user(self._current_hand_users[i].id))
+                    decision_time = time.time() - decision_time
+                    # decision = Decision(Decision.FOLD)
+                else:
+                    print('Getting decision from human')
+                    decision = self.wait_for_decision(self._current_hand_users[i])
+                    self._current_hand_users[i].signal_processed_decision()
+                if decision is None:
+                    print('No decision from user')
+                    decision = Decision(Decision.FOLD)
+                    self._current_hand_users[i].is_seated = False
+                if decision.bet_ammount is not None:
+                    if not self._check_bet_ammount(decision.bet_ammount, self._current_hand_users[i]):
+                        decision = Decision(Decision.CHECK)
+                if decision_time is not None:
+                    decision_time = float(str(decision_time))
+                    if decision_time < 2:
+                        time.sleep(2 - decision_time)
+                self._current_hand_users[i].is_active = False
+                self._alter_on_decision(self._current_hand_users[i], decision)
+            for user in self._to_remove:
+                self._table.remove_current_hand_user(user)
+                self._current_hand_users = list(filter(lambda u: u.id != user.id, self._current_hand_users))
+            continue_betting = False
+            max_bet = 0
+            for user in self._current_hand_users:
+                max_bet = max(max_bet, user.current_bet)
+            for user in self._current_hand_users:
+                if user.current_bet < max_bet and user.balance != 0:
+                    continue_betting = True
+                    break
         self._update_to_redis()
 
     def _check_bet_ammount(self, bet_ammount, user):
@@ -207,6 +225,7 @@ class GameHandler:
         winner.balance += self._table.pot
 
     def _sort_current_hand_users_by_pos(self, start_pos):
+        return
         print(f'Sorting by: {start_pos}')
         if start_pos == Position.D:
             self._current_hand_users = sorted(self._current_hand_users, key=lambda u: u.position.index)

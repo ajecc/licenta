@@ -7,7 +7,7 @@ class Decision:
     CALL = 'CALL'
     BET = 'BET'
 
-    DECISION_TIME = 20  # seconds
+    DECISION_TIME = 120  # seconds
 
     def __init__(self, decision, bet_ammount=None):
         self._decision = decision
