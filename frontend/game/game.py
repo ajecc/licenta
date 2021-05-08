@@ -19,7 +19,6 @@ class GameLayout(QVBoxLayout):
         super().__init__()
         self._game_state = json.loads(game_state_json)
         self._your_user = self._game_state['users'][self._game_state['your_index']]
-        self._game_state['users'] = self._game_state['users'][::-1]
         self._init_layouts()
         self._add_cards_to_board(self._game_state['board']['cards'])
         for user in self._game_state['users']:
