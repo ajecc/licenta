@@ -1,6 +1,7 @@
 from model.card import Card
 from model.position import Position
 from model.decision import Decision
+from model.cred import Cred
 from extensions import g_redis
 import requests
 import json
@@ -103,6 +104,10 @@ class User:
     def __str__(self):
         return str(self.__dict__)
     
+    @property
+    def name(self):
+        return Cred.from_redis(self._id).username
+
     @property
     def pl(self):
         return self._pl

@@ -6,7 +6,7 @@ from model.table import Table
 from model.cred import Cred
 from controller.controllers import user_controller, table_controller
 from pokereval.hand_evaluator import HandEvaluator
-from game.ai_bridge import AiBridge
+from game.ai_process_invoker import AiProcessInvoker
 from extensions import g_redis
 import sys
 import time
@@ -20,7 +20,7 @@ class GameHandler:
         self._table = Table.from_redis(table_id)
         self._current_hand_users = []
         self._current_users = []
-        self._ai_bridge = AiBridge()
+        self._ai_process_invokers = {}
         self._cards_visible = False
         self._to_remove = []
 
@@ -163,7 +163,11 @@ class GameHandler:
                 if self._current_hand_users[i].is_bot:
                     print('Getting decision from bot')
                     decision_time = time.time()
-                    decision = self._ai_bridge.get_decision(self.to_json_for_user(self._current_hand_users[i].id))
+                    ai_id = self._current_hand_users[i].id  
+                    if ai_id not in self._ai_process_invokers.keys():
+                        self._ai_process_invokers[ai_id] = AiProcessInvoker()
+                        self._ai_process_invokers[ai_id].start_process()
+                    decision = self._ai_process_invokers[ai_id].get_decision(self.to_json_for_user(self._current_hand_users[i].id))
                     decision_time = time.time() - decision_time
                 else:
                     print('Getting decision from human')
@@ -332,7 +336,7 @@ class GameHandler:
                 'seated': False,
                 'balance': 0,
                 'dealer': False,
-                'name': '',
+                'name': 'INACTIVE',
                 'bet': 0,
                 'cards': [],
                 'pl': 0})
@@ -346,16 +350,16 @@ class GameHandler:
         if len(self._current_users) <= 2:
             pass
         else:
-            add_user(self._current_users[index - 2])
-            add_user(self._current_users[index - 1])
-            for user in self._current_users[index:]:
-                if user.id == self._current_users[index - 2].id or user.id == self._current_users[index - 1]:
-                    break
-                add_user(user)
-            for user in self._current_users[:index - 2]:
-                if user.id == self._current_users[index - 2].id or user.id == self._current_users[index - 1]:
-                    break
-                add_user(user)
+            index -= 2
+            if index < 0:
+                index += len(self._current_users)
+            passed = 0
+            while passed < len(self._current_users):
+                add_user(self._current_users[index])
+                index += 1
+                if index >= len(self._current_users):
+                    index -= len(self._current_users)
+                passed += 1
         while len(json_['users']) < 6:
             add_blank_user()
         json_['your_index'] = 2

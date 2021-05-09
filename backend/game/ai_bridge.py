@@ -45,7 +45,15 @@ class AiBridge:
             dll_symbols += f'c0cardface{i}:{card}\n'
         dll_symbols += f'c0pot0:{symbols["board"]["pot"]}\n'
         dll_symbols += 'c0pot1:0\n'
-        for i, user in enumerate(symbols['users']):
+        users = symbols['users']
+        # TODO: handle heads-up
+        main_name = users[2]['name']
+        users = users[::-1]
+        while users[2]['name'] != main_name:
+            temp = users[0]
+            users = users[1:]
+            users.append(temp)
+        for i, user in enumerate(users):
             if len(user['cards']) != 0:
                 temp = 1
             else:
@@ -57,8 +65,7 @@ class AiBridge:
                 dll_symbols += f'p{i}cardface0:{user["cards"][0]}\n'
                 dll_symbols += f'p{i}cardface1:{user["cards"][1]}\n'
             dll_symbols += f'p{i}dealer:{int(user["dealer"])}\n'
-            # NOTE: as of now, we don't care about the name
-            dll_symbols += f'p{i}name:name\n'
+            dll_symbols += f'p{i}name:{user["name"]}\n'
             dll_symbols += f'p{i}seated:{int(user["seated"])}\n'
         dll_symbols += f'bblind:{symbols["board"]["bb"]}'
         return dll_symbols
