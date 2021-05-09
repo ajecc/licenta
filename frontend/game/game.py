@@ -4,6 +4,7 @@ from PyQt5.QtWidgets import QApplication, QWidget, QLineEdit, QVBoxLayout, QHBox
         QMessageBox, QPushButton, QListWidget, QFrame, QSplitter, QLabel, QTableWidget,\
         QTableWidgetItem, QHeaderView, QFileDialog, QErrorMessage, QGridLayout, QMainWindow
 from PyQt5 import QtGui, QtCore
+from PyQt5.QtCore import Qt
 import json
 from game.user import UserWidget
 from game.image import ImageWidget
@@ -19,24 +20,34 @@ class GameLayout(QVBoxLayout):
         super().__init__()
         self._game_state = json.loads(game_state_json)
         self._your_user = self._game_state['users'][self._game_state['your_index']]
+        self._pl = self._your_user['pl']
+        self._pot = self._game_state['board']['pot']
         self._init_layouts()
         self._add_cards_to_board(self._game_state['board']['cards'])
+        self._add_pot()
         for user in self._game_state['users']:
             if user['seated']:
                 self._add_user(user)
+        self._add_pl()
         if self._your_user['active']:
             self._add_buttons()
 
     def _init_layouts(self):
+        self._pot_layout = QHBoxLayout()
+        self._pot_layout.setAlignment(QtCore.Qt.AlignCenter)
         self._board_layout = QHBoxLayout()
         self._board_layout.setAlignment(QtCore.Qt.AlignCenter)
         self._users_layout = QHBoxLayout()
         self._users_layout.setAlignment(QtCore.Qt.AlignCenter)
+        self._pl_layout = QHBoxLayout()
+        self._pl_layout.setAlignment(QtCore.Qt.AlignCenter)
         self._buttons_layout = QHBoxLayout()
         self._buttons_layout.setAlignment(QtCore.Qt.AlignCenter)
         self._buttons_layout.setContentsMargins(420, 30, 420, 100)
+        self.addLayout(self._pot_layout)
         self.addLayout(self._board_layout)
         self.addLayout(self._users_layout)
+        self.addLayout(self._pl_layout)
         self.addLayout(self._buttons_layout)
 
     def _add_user(self, user_json):
@@ -47,6 +58,16 @@ class GameLayout(QVBoxLayout):
             card = ImageWidget(card)
             self._board_layout.addWidget(card)
 
+    def _add_pot(self):
+        self._pot_label = QLabel(f'Pot: {self._pot}')
+        self._pot_label.setAlignment(Qt.AlignCenter)
+        self._pot_layout.addWidget(self._pot_label)
+
+    def _add_pl(self):
+        self._pl_label = QLabel(f'P/L: {self._pl}')
+        self._pl_label.setAlignment(Qt.AlignCenter)
+        self._pl_layout.addWidget(self._pl_label)
+    
     def _add_buttons(self):
         self._bet_line_edit = QLineEdit()
         self._validator = QtGui.QIntValidator(self._find_min_bet(), self._your_user['balance'])

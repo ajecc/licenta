@@ -30,6 +30,10 @@ class User:
         user._is_active = g_redis.get(id, 'user:is_active')
         user._is_seated = g_redis.get(id, 'user:is_seated')
         user._pl = g_redis.get(id, 'user:pl')
+        if user._pl is None:
+            user._pl = 0
+        else:
+            user._pl = int(user._pl)
         return user
         
     def __init__(self, cred_id):

@@ -30,18 +30,14 @@ class SettingsWindow(QWidget):
         self._bots_form = Form('Number of Bots')
         self._bots_form.add_to_layout(self._forms_layout)
         # Table code
-        self._table_code = Form('Table Code')
-        self._table_code.add_to_layout(self._forms_layout)
+        # self._table_code = Form('Table Code')
+        # self._table_code.add_to_layout(self._forms_layout)
 
     def _add_buttons(self):
         # Login
         self._create_table_button = QPushButton('Create Table')
         self._create_table_button.clicked.connect(self._create_table_button_action)
         self._buttons_layout.addWidget(self._create_table_button)
-        # Register
-        self._join_button = QPushButton('Register')
-        self._join_button.clicked.connect(self._join_button_action)
-        self._buttons_layout.addWidget(self._join_button)
 
     def _create_table_button_action(self):
         self._bots_form.set_error_text('')

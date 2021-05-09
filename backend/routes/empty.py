@@ -11,10 +11,10 @@ empty = Blueprint('empty', __name__)
 def create_table():
     try:
         bots_cnt = int(request.json.get('bots_cnt'))
-        if bots_cnt < 1 or bots_cnt > 5:
+        if bots_cnt < 2 or bots_cnt > 5:
             raise ValueError()
     except:
-        return Response('Invalid number of bots', status=400)
+        return Response('Number of bots must be between 2 and 5', status=400)
     table = table_controller.create_new(bots_cnt)
     if table is None:
         return Response('Could not create table', status=400)
