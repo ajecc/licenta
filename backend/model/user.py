@@ -8,6 +8,8 @@ import time
 
 
 class User:
+    STARTING_BALANCE = 1000
+
     @classmethod
     def from_redis(cls, id):
         if id is None:
@@ -27,6 +29,7 @@ class User:
             user._decision = Decision.from_json(user._decision)
         user._is_active = g_redis.get(id, 'user:is_active')
         user._is_seated = g_redis.get(id, 'user:is_seated')
+        user._pl = g_redis.get(id, 'user:pl')
         return user
         
     def __init__(self, cred_id):
@@ -34,12 +37,13 @@ class User:
         self._table_id = None
         self._hand = []
         self._current_bet = 0
-        self._balance = 1000
+        self._balance = User.STARTING_BALANCE 
         self._is_bot = False
         self._position = None
         self._decision = None
         self._is_active = False 
         self._is_seated = True
+        self._pl = 0
 
     def join_table(self, table):
         self._table_id = table.id
@@ -76,6 +80,7 @@ class User:
             g_redis.set(self._id, 'user:position', None)
         g_redis.set(self._id, 'user:is_active', self._is_active)
         g_redis.set(self._id, 'user:is_seated', self._is_seated)
+        g_redis.set(self._id, 'user:pl', self._pl)
     
     def signal_processed_decision(self):
         self._decision = None
@@ -88,10 +93,20 @@ class User:
     def clear(self):
         self._hand = []
         self._current_bet = 0
+        self._pl += self._balance - User.STARTING_BALANCE
+        self._balance = User.STARTING_BALANCE
 
     def __str__(self):
         return str(self.__dict__)
+    
+    @property
+    def pl(self):
+        return self._pl
 
+    @pl.setter
+    def pl(self, value):
+        self._pl = value
+    
     @property
     def id(self):
         return self._id

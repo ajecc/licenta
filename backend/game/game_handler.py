@@ -48,8 +48,8 @@ class GameHandler:
             self._cards_visible = False
             print('updating users')
             self._update_current_users()
-            #print('shifting positions')
-            #self._shift_users_position()
+            print('shifting positions')
+            self._shift_users_position()
             print('clearing')
             self._clear()
             print('updating to redis')
@@ -67,7 +67,7 @@ class GameHandler:
     def _assign_positions(self):
         self._current_users = [User.from_redis(id) for id in self._table.current_users_ids]
         for i, _ in enumerate(self._current_users):
-            self._current_users[i].position = Position(index=i)
+            self._current_users[i].position = Position(index=len(self._current_users) - i - 1)
             self._current_users[i].update_to_redis()
 
     def _seat_users(self):
@@ -77,7 +77,7 @@ class GameHandler:
             self._current_users[i].update_to_redis()
 
     def _update_current_users(self):
-        #self._table.current_users_ids = Table.from_redis(self._table.id).current_users_ids
+        self._table.current_users_ids = Table.from_redis(self._table.id).current_users_ids
         self._table.current_hand_users_ids = []
         new_current_users_ids = []
         for id in self._table.current_users_ids:
@@ -91,8 +91,8 @@ class GameHandler:
                 user_controller.remove(user.id)
             else:
                 table_controller.remove_user_from_table(user)
-        #self._table.current_users_ids = new_current_users_ids
-        #self._current_users = [User.from_redis(id) for id in self._table.current_users_ids]
+        self._table.current_users_ids = new_current_users_ids
+        self._current_users = [User.from_redis(id) for id in self._table.current_users_ids]
         self._current_hand_users = []
         for i, _ in enumerate(self._current_users):
             self._current_hand_users.append(self._current_users[i])
@@ -126,7 +126,11 @@ class GameHandler:
             self._table.current_bet = 0
             for i, _ in enumerate(self._current_users):
                 self._current_users[i].current_bet = 0
+            time_ = time.time()
             self._start_betting_round()
+            time_diff = time.time() - time_
+            if time_diff < 2:
+                time.sleep(2 - time_diff)
 
     def _shift_users_position(self):
         # TODO: handle heads-up
@@ -143,13 +147,17 @@ class GameHandler:
             current_position_index += 1
 
     def _start_betting_round(self):
+        # TODO: last player can still bet (even though he should't)
+        # TODO: on all ins, just skip players
         continue_betting = True
         while continue_betting:
             self._to_remove = []
             for i, _ in enumerate(self._current_hand_users):
-                print(self._current_hand_users[i].position.position)
+                print(f'Current player position is: {self._current_hand_users[i].position.position}')
                 if len(self._to_remove) == len(self._current_hand_users) - 1:
                     break
+                if not self._can_take_action(self._current_hand_users[i]):
+                    continue
                 decision_time = None
                 self._current_hand_users[i].is_active = True
                 if self._current_hand_users[i].is_bot:
@@ -157,7 +165,6 @@ class GameHandler:
                     decision_time = time.time()
                     decision = self._ai_bridge.get_decision(self.to_json_for_user(self._current_hand_users[i].id))
                     decision_time = time.time() - decision_time
-                    # decision = Decision(Decision.FOLD)
                 else:
                     print('Getting decision from human')
                     decision = self.wait_for_decision(self._current_hand_users[i])
@@ -177,16 +184,33 @@ class GameHandler:
                 self._alter_on_decision(self._current_hand_users[i], decision)
             for user in self._to_remove:
                 self._table.remove_current_hand_user(user)
-                self._current_hand_users = list(filter(lambda u: u.id != user.id, self._current_hand_users))
+            self._current_hand_users = list(filter(lambda u: u.id not in [u2.id for u2 in self._to_remove], self._current_hand_users))
             continue_betting = False
-            max_bet = 0
-            for user in self._current_hand_users:
-                max_bet = max(max_bet, user.current_bet)
+            max_bet = self._get_max_bet()
             for user in self._current_hand_users:
                 if user.current_bet < max_bet and user.balance != 0:
+                    print(f'Continuing betting because user.current_bet={user.current_bet} and max_bet={max_bet}')
                     continue_betting = True
                     break
         self._update_to_redis()
+
+    def _get_max_bet(self):
+        max_bet = 0
+        for user in self._current_hand_users:
+            max_bet = max(max_bet, user.current_bet)
+        return max_bet
+
+    def _can_take_action(self, user):
+        if user.balance == 0:
+            return False
+        max_bet = self._get_max_bet()
+        if max_bet == 0:
+            return True
+        if user.current_bet == max_bet:
+            if user.current_bet == self._table.bb and len(self._table.cards) == 0 and user.position == Position.BB:
+                return True
+            return False
+        return True
 
     def _check_bet_ammount(self, bet_ammount, user):
         if bet_ammount == user.balance:
@@ -197,11 +221,6 @@ class GameHandler:
             return False
         return True
 
-    def _add_card(self):
-        card = generate_random(self._used_cards)
-        self._used_cards.append(card)
-        self._cards.append(card)
-    
     def _distribute_cards(self):
         for i, user in enumerate(self._current_hand_users):
             card_0 = generate_random(self._table.used_cards)
@@ -225,7 +244,6 @@ class GameHandler:
         winner.balance += self._table.pot
 
     def _sort_current_hand_users_by_pos(self, start_pos):
-        return
         print(f'Sorting by: {start_pos}')
         if start_pos == Position.D:
             self._current_hand_users = sorted(self._current_hand_users, key=lambda u: u.position.index)
@@ -235,7 +253,7 @@ class GameHandler:
         new_current_hand_users = []
         position_index = len(self._current_hand_users)
         for i in range(len(self._current_hand_users)):
-            if self._current_hand_users[i].position == start_pos:
+            if self._current_hand_users[i].position.index >= start_pos.index:
                 position_index = i
                 break
         for i in range(position_index, len(self._current_hand_users)):
@@ -306,7 +324,8 @@ class GameHandler:
                 'dealer': True if user.position == 'D' else False,
                 'name': Cred.from_redis(user.id).username,
                 'bet': user.current_bet,
-                'cards': [str(card) for card in cards]})
+                'cards': [str(card) for card in cards],
+                'pl': user.pl})
 
         def add_blank_user():
             json_['users'].append({'active': False,
@@ -315,7 +334,8 @@ class GameHandler:
                 'dealer': False,
                 'name': '',
                 'bet': 0,
-                'cards': []})
+                'cards': [],
+                'pl': 0})
 
         index = None
         for i, user in enumerate(self._current_users):
@@ -329,7 +349,11 @@ class GameHandler:
             add_user(self._current_users[index - 2])
             add_user(self._current_users[index - 1])
             for user in self._current_users[index:]:
-                if user.id == self._current_users[index - 2].id:
+                if user.id == self._current_users[index - 2].id or user.id == self._current_users[index - 1]:
+                    break
+                add_user(user)
+            for user in self._current_users[:index - 2]:
+                if user.id == self._current_users[index - 2].id or user.id == self._current_users[index - 1]:
                     break
                 add_user(user)
         while len(json_['users']) < 6:

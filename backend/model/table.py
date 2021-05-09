@@ -32,7 +32,7 @@ class Table:
         self._current_users_ids = []
         self._current_hand_users_ids = []
         self._used_cards = []
-        self._bb = 100  # TODO: change me
+        self._bb = 10  # TODO: change me
 
     def add_user(self, user):
         user.join_table(self)
@@ -64,6 +64,7 @@ class Table:
 
     def add_card(self):
         self._cards.append(generate_random(self._used_cards))
+        self.append_used_card(self._cards[-1])
 
     def append_used_card(self, card):
         self._used_cards.append(card)

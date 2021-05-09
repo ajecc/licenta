@@ -32,11 +32,11 @@ class RedisPersistence:
     def update_list(self, id, key, new_list):
         self._redis.delete(f'{key}#{id}')
         for elem in new_list:
-            self._redis.lpush(f'{key}#{id}', self._convert_set(elem))
+            self._redis.rpush(f'{key}#{id}', self._convert_set(elem))
 
     def get_list(self, id, key):
-        list = self._redis.lrange(f'{key}#{id}', 0, -1)
-        return [self._convert_get(elem) for elem in list]
+        list_ = self._redis.lrange(f'{key}#{id}', 0, -1)
+        return [self._convert_get(elem) for elem in list_]
 
     def exists_key(self, key):
         return self._redis.exists(key)
